@@ -6,7 +6,7 @@ from skweak.spacy_model import ModelAnnotator, TruecaseAnnotator
 from skweak.heuristics import FunctionAnnotator, TokenConstraintAnnotator, SpanConstraintAnnotator, SpanEditorAnnotator
 from skweak.gazetteers import GazetteerAnnotator, extract_json_data
 from skweak.doclevel import DocumentHistoryAnnotator, DocumentMajorityAnnotator
-from skweak.aggregation import EnsembleMajorityVoter
+from skweak.aggregation import MajorityVoter
 from skweak import utils
 from spacy.tokens import Doc, Span
 
@@ -266,14 +266,14 @@ class NERAnnotator(CombinedAnnotator):
         self.add_annotator(ModelAnnotator("core_web_md", "en_core_web_md"))
         self.add_annotator(TruecaseAnnotator("core_web_md_truecase", "en_core_web_md", FORM_FREQUENCIES))
  #       self.add_annotator(ModelAnnotator("conll2003", os.path.dirname(__file__) + "/../data/conll2003"))
-        self.add_annotator(ModelAnnotator("BTC", os.path.dirname(__file__) + "/../data/BTC"))
-        self.add_annotator(TruecaseAnnotator("BTC_truecase", os.path.dirname(__file__) + "/../data/BTC", FORM_FREQUENCIES))
+ #       self.add_annotator(ModelAnnotator("BTC", os.path.dirname(__file__) + "/../data/BTC"))
+ #       self.add_annotator(TruecaseAnnotator("BTC_truecase", os.path.dirname(__file__) + "/../data/BTC", FORM_FREQUENCIES))
  #       self.add_annotator(ModelAnnotator("SEC", "data/SEC-filings"))
 
         # Avoid spans that start with an article
         editor = lambda span: span[1:] if span[0].lemma_ in {"the", "a", "an"} else span
-        self.add_annotator(SpanEditorAnnotator("edited_BTC", "BTC", editor))
-        self.add_annotator(SpanEditorAnnotator("edited_BTC_truecase", "BTC_truecase", editor))
+ #       self.add_annotator(SpanEditorAnnotator("edited_BTC", "BTC", editor))
+ #       self.add_annotator(SpanEditorAnnotator("edited_BTC_truecase", "BTC_truecase", editor))
         self.add_annotator(SpanEditorAnnotator("edited_core_web_md", "core_web_md", editor))
         self.add_annotator(SpanEditorAnnotator("edited_core_web_md_truecase", "core_web_md_truecase", editor))
 
@@ -331,16 +331,16 @@ class NERAnnotator(CombinedAnnotator):
         
         self.add_annotator(ConLL2003Standardiser())
         
-        maj_voter = EnsembleMajorityVoter("doclevel_voter", ["LOC", "MISC", "ORG", "PER"])
+        maj_voter = MajorityVoter("doclevel_voter", ["LOC", "MISC", "ORG", "PER"])
         maj_voter.sources_to_avoid = ["doc_history", "doc_majority"]
-        maj_voter.add_constraint_label("ENT", {"LOC", "MISC", "ORG", "PER"})     
+        maj_voter.add_underspecified_label("ENT", {"LOC", "MISC", "ORG", "PER"})     
         self.add_annotator(maj_voter)   
            
         self.add_annotator(DocumentHistoryAnnotator("doc_history", "doclevel_voter", ["PER", "ORG"]))
         
-        maj_voter = EnsembleMajorityVoter("doclevel_voter", ["LOC", "MISC", "ORG", "PER"])
+        maj_voter = MajorityVoter("doclevel_voter", ["LOC", "MISC", "ORG", "PER"])
         maj_voter.sources_to_avoid = ["doc_majority"]
-        maj_voter.add_constraint_label("ENT", {"LOC", "MISC", "ORG", "PER"})     
+        maj_voter.add_underspecified_label("ENT", {"LOC", "MISC", "ORG", "PER"})     
         self.add_annotator(maj_voter)   
 
         self.add_annotator(DocumentMajorityAnnotator("doc_majority", "doclevel_voter"))
