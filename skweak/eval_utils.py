@@ -27,8 +27,9 @@ def evaluate(docs, all_labels, target_sources):
     df["proportion"] = df.proportion.apply(lambda x: "%.1f %%"%(x*100) if not np.isnan(x) else "")
     df["tok_cee"] = df.tok_cee.apply(lambda x: str(x) if not np.isnan(x) else "")
     df["tok_acc"] = df.tok_acc.apply(lambda x: str(x) if not np.isnan(x) else "")
+    df["coverage"] = df.coverage.apply(lambda x: str(x) if not np.isnan(x) else "")
     df = df.set_index(["label", "proportion", "model"]).sort_index()
-    df = df[["tok_precision", "tok_recall", "tok_f1", "tok_cee", "tok_acc",
+    df = df[["tok_precision", "tok_recall", "tok_f1", "tok_cee", "tok_acc", "coverage",
              "ent_precision", "ent_recall", "ent_f1"]]
     return df
 
@@ -89,7 +90,8 @@ def get_results(docs, all_labels, target_source, conf_threshold=0.5):
                         "tok_precision":round(sum([tok_tp[l] for l in ent_support]) /tok_pred, 3), 
                         "tok_recall":round(sum([tok_tp[l] for l in ent_support]) / tok_true, 3),
                         "tok_cee":round(tok_logloss/tok_nb, 3),
-                        "tok_acc": round(tok_tp_tn/tok_nb, 3)}
+                        "tok_acc": round(tok_tp_tn/tok_nb, 3),
+                        "coverage":round((sum(tok_tp.values()) +sum(tok_fp.values())) / sum(tok_support.values()), 3)}
     
     for metric in ["macro", "weighted", "micro"]:
         ent_f1_numerator = (results[metric]["ent_precision"] * results[metric]["ent_recall"])
@@ -123,7 +125,6 @@ def compute_raw_numbers(docs, all_labels, target_source, conf_threshold=0.5):
     tok_support = {}
 
     for doc in docs:
-        
         spans = utils.get_agg_spans(doc, target_source)
         spans = [(start,end,label) for (start,end), (label, prob) in spans.items() if prob >=conf_threshold]     
             
@@ -159,9 +160,9 @@ def get_confusions(docs, all_labels, target_source):
     for doc in docs:
         for tok in doc:
             true_arr.append("O" if tok.ent_iob_=="O" else tok.ent_type_)
-            if target_source in doc.user_data["agg_token_labels"] and tok.i in doc.user_data["agg_token_labels"][target_source]:
+            if target_source in doc.user_data["agg_probs"] and tok.i in doc.user_data["agg_probs"][target_source]:
                 vals2 = {}
-                for val, prob in doc.user_data["agg_token_labels"][target_source][tok.i].items():
+                for val, prob in doc.user_data["agg_probs"][target_source][tok.i].items():
                     vals2[val.split("-")[1]] = vals2.get(val.split("-")[1], 0) + prob
                 if sum(vals2.values()) < 0.99:
                     vals2["O"] = 1 - sum(vals2.values())
@@ -192,23 +193,28 @@ def get_confusions(docs, all_labels, target_source):
 
 
 
-def get_probs(doc, all_labels, target_source,  encoding="BIO"):
+def get_probs(doc, all_labels, target_source):
 
-    gold_spans = {(ent.start, ent.end):ent.label_ for ent in doc.ents}
-    converter = utils.SpanToArrayConverter(len(doc), all_labels, encoding)
-    gold_probs = converter.raw_spans_to_array(gold_spans)
-    gold_probs = gold_probs.astype(np.float32) #type: ignore
+    out_label_indices = {"O":0}
+    for label in all_labels:
+        for prefix in "BI":
+            out_label_indices["%s-%s" % (prefix, label)] = len(out_label_indices)
+                            
+    gold_probs = np.zeros((len(doc), len(out_label_indices)), dtype=np.int16)    
+    for ent in doc.ents:
+        gold_probs[ent.start, out_label_indices.get("B-%s" % ent.label_, 0)] = 1
+        for i in range(ent.start+1, ent.end):
+            gold_probs[i, out_label_indices.get("I-%s" % ent.label_, 0)] = 1
     
-    if target_source in doc.user_data["agg_token_labels"]:
-        pred_probs = np.zeros(gold_probs.shape)
-        for tok_pos, labels in doc.user_data["agg_token_labels"][target_source].items():
+    pred_probs = np.zeros(gold_probs.shape)
+    if target_source in doc.user_data["agg_probs"]:       
+        for tok_pos, labels in doc.user_data["agg_probs"][target_source].items():
             for label, label_prob in labels.items():
-                label_index = converter.label_to_index[label]
-                pred_probs[tok_pos, label_index] = label_prob
+                pred_probs[tok_pos, out_label_indices[label]] = label_prob
         pred_probs[:,0] = np.clip(1-pred_probs[:,1:].sum(axis=1), 0.0, 1.0)
     else:
-        pred_probs = converter.raw_spans_to_array(doc.user_data["spans"][target_source])
-        pred_probs = pred_probs.astype(np.float32) #type: ignore
+        vector = utils.spans_to_array(doc, all_labels, [target_source])[:,0]
+        pred_probs[np.arange(vector.size), vector] = True       
     
     return gold_probs, pred_probs
 

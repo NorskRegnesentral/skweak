@@ -1,4 +1,4 @@
-from __future__ import annotations
+
 from abc import abstractmethod
 import itertools
 from typing import Sequence, Tuple, Optional, Iterable
@@ -167,7 +167,7 @@ class CombinedAnnotator(BaseAnnotator):
                     print("ignoring document:", doc)
                     raise e
                 
-            yield doc
+            yield doc 
 
     def add_annotator(self, annotator: BaseAnnotator):
         """Adds an annotator to the list"""

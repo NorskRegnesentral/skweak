@@ -283,7 +283,8 @@ class Trie:
 ############################################
 
 
-def extract_json_data(json_file: str, cutoff: Optional[int] = None) -> Dict[str,Trie]:
+def extract_json_data(json_file: str, cutoff: Optional[int] = None,
+                      spacy_model="en_core_web_md") -> Dict[str,Trie]:
     """Extract entities from a Json file and build trie from it (one per class).
     
     If cutoff is set to a number, stops the extraction after a number of values
@@ -312,7 +313,7 @@ def extract_json_data(json_file: str, cutoff: Optional[int] = None) -> Dict[str,
                     if any(tok for tok in tokens if not tok.isalpha() 
                            and not tok.isnumeric() and not re.match("[A-Z]\\.$", tok)):
                         import spacy
-                        tokeniser = tokeniser or spacy.load("en").tokenizer
+                        tokeniser = tokeniser or spacy.load(spacy_model).tokenizer
                         tokens = [t.text for t in tokeniser(name)]
                         
                     if len(tokens) > 0:
@@ -325,46 +326,3 @@ def extract_json_data(json_file: str, cutoff: Optional[int] = None) -> Dict[str,
             
             tries[neClass] = trie
     return tries
-
-
-# def tokenise_fast(text: str) -> List[str]:
-#     """Fast tokenisation of a string (designed to be roughly similar to Spacy's)"""
-#     tokens = text.split(" ")
-#     tokens2 = []
-#     for token in tokens:
-        
-#         # Special case: handle hyphenised tokens like Jean-Pierre
-#         if "-" in token and not re.search(r"\d", token):
-#             subtokens = token.split("-")
-#             for j, sub_token in enumerate(subtokens):
-#                 tokens2.append(sub_token)
-#                 if j < len(subtokens)-1:
-#                     tokens2.append("-")
-                    
-#         # Special case: handle tokens like 3G, where Spacy tokenisation is unpredictable
-#         elif len(token) < 5 and re.match(r"\d+[A-Za-z]+", token):
-#             if not hasattr(tokenise_fast, "nlp"):
-#                 import spacy
-#                 tokenise_fast.nlp = spacy.load("en", disable=["tagger","parser","ner"])
-#             for tok in tokenise_fast.nlp(token):
-#                 tokens2.append(tok.text)
-#         else:
-#             tokens2.append(token)
-#     tokens = tokens2
-    
-#     i = 0 
-#     while i < len(tokens): 
-        
-#         # Special case: handle genitives
-#         if tokens[i].endswith("'s"): 
-#             tokens[i] = tokens[i].rstrip("s").rstrip("'") 
-#             tokens.insert(i+1, "'s") 
-#             i += 2 
-#         else: 
-#             i += 1
-            
-#     tokens = [tok for tok in tokens if len(tok)>0]
-#     return tokens
-
-
-

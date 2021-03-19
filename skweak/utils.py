@@ -289,21 +289,52 @@ def get_agg_spans(doc: Doc, agg_source: str, labels: List[str]=None):
 
 
 def get_agg_span_prob(doc, source, start, end, label):
-    """Get the probability that the source assigns the (start,end)->label span
-    (this only works for aggregated spans, which have probabilities)"""
+    """Get the probability that the source assigns the (start,end)->label span"""
     
-    if source not in doc.user_data["agg_token_labels"]:
+    if source not in doc.user_data["agg_probs"]:
         return 0
-    token_labels = doc.user_data["agg_token_labels"][source]
-    probs = []
+    agg_probs = doc.user_data["agg_probs"][source]
+    if (start, end) in agg_probs:
+        return agg_probs[(start, end)].get(label, 0.0)
+    probs_per_token = []
     for i in range(start, end):
-        if i in token_labels:
-            for prefixed_label, prob in token_labels[i].items():
+        if i in agg_probs:
+            for prefixed_label, prob in agg_probs[i].items():
                 if prefixed_label.endswith("-%s"%label):
-                    probs.append(prob)
-    return sum(probs)/(end-start)
+                    probs_per_token.append(prob)
+    return sum(probs_per_token)/(end-start)
                 
+
+def count_nb_occurrences(tokens: Tuple[str,...], all_tokens: List[str]):
+    """Count the number of occurences of the sequence of tokens in the
+    full list all_tokens"""
     
+    nb_occurrences = 0
+    for i in range(len(all_tokens)):
+        for k in range(len(tokens)):
+            if all_tokens[i+k] != tokens[k]:
+                break
+        else:
+            nb_occurrences += 1
+    return nb_occurrences        
+
+def at_least_nb_occurrences(tokens: Tuple[str,...], all_tokens: List[str], min_threshold):
+    """Returns true if the number of occurences of the sequence of tokens in the
+    full list all_tokens is at least min_threshold, and false otherwise"""
+    
+    if len(tokens)==1:
+        return all_tokens.count(tokens[0]) >= min_threshold
+    
+    nb_occurrences = 0
+    for i in range(len(all_tokens)):
+        for k in range(len(tokens)):
+            if all_tokens[i+k] != tokens[k]:
+                break
+        else:
+            nb_occurrences += 1
+            if nb_occurrences >= min_threshold:
+                return True
+    return False      
 
 
 def remove_overlaps(spans: List[Tuple[int, int, str]]
@@ -405,81 +436,64 @@ def get_subsequences(sequence: List[T]) -> List[List[T]]:
     return subsequences
 
 
-def spans_to_arrays(doc: Doc, labels: List[str], sources: Set[str]=None,
-                   encoding="BIO") -> Dict[str,np.ndarray]:
-    """Convert the annotations of a spacy document into a dictionary of 
-    2D arrays. The dictionary associates each labelling source with a
-    boolean 2D array of shape (doc_length, nb_prefix_labels). In other words,
-    the value at (i,j) is True if the source generated label j for the
-    word at position i, and False otherwise. 
-      
-    Labels must be a list of labels (such as PERSON, ORG) to detect. 
+def spans_to_array(doc: Doc, labels: List[str], 
+                    sources: Set[str]=None) -> np.ndarray:
+    """Convert the annotations of a spacy document into a 2D array.
+    Each row corresponds to a token, and each column to a labelling
+    source. In other words, the value at (i,j) represents the prediction
+    of source j for token i. This prediction is expressed as the
+    index of the label in the labels.
+    
+    Labels must be a list of labels (such as B-PERSON, I-ORG) to detect. 
     Sources should be a list of labelling sources. If empty, all sources
     are employed. 
+    
+    NB: we assume the labels use either IO/BIO/BILUO, and that the
+    O label is at position 0. 
     """
-    
-    converter = SpanToArrayConverter(len(doc), labels, encoding)
-    arrays = {}
-    sources = sources or set(doc.user_data.get("spans", {}))
-    for source in sources:
-        arrays[source] = converter.raw_spans_to_array(doc.user_data["spans"].get(source,{}))
-    return arrays
 
+    # Creating some helper dictionaries
+    label_indices = {}
+    prefixes = set()
+    labels_without_prefix = set()
+    for i, label in enumerate(labels):
+        label_indices[label] = i
+        if "-" in label:
+            prefix, label = label.split("-",1)
+            prefixes.add(prefix)
+            labels_without_prefix.add(label)
+    
+    if sources is None:
+        sources = list(doc.user_data.get("spans", {}).keys())
 
-class SpanToArrayConverter:
-    """Utility class to convert labelled spans to 2D boolean arrays"""
-    
-    def __init__(self, doc_length, labels, encoding):
-        
-        self.doc_length = doc_length
-        # Defining prefixed labels (B-PERSON etc.)
-        self.prefix_labels = ["O"] + ["%s-%s"%(prefix, l) for l in labels 
-                             for prefix in encoding.replace("O", "")] 
-        self.label_to_index = {label:i for i, label in enumerate(self.prefix_labels)}
+    # Creating the numpy array itself
+    data  = np.zeros((len(doc), len(sources)), dtype=np.int16)
 
-        # Used to quickly check whether a label is part of the observation labels
-        self.obs_label_set = set(labels)
-        self.encoding = encoding
-        
-    def raw_spans_to_array(self, spans:Dict[Tuple[int,int],str]) -> np.ndarray:
-        """Convert a collection of labelled spans into a 2D array of shape 
-        (doc_length, nb_prefix_labels). In other words, the value at (i,j) is True 
-        if the span has generated label j for the word at position i, and False otherwise. 
-        """
-    
-        arr = np.zeros((self.doc_length,  len(self.prefix_labels)), dtype=bool) 
-        arr[:,0] = True     
-        
-        for (start, end), label in spans.items():
+    for source_index, source in enumerate(sources):
+        for (start,end),label in doc.user_data["spans"].get(source, {}).items():
+            
+            if label not in labels_without_prefix:
+                continue
+            
+            # If the span is a single token, we can use U
+            if "U" in prefixes and (end-start)==1:
+                data[start, source_index] = label_indices["U-%s"%label]
+                continue
                     
-            # Checking that the label and boundary are correct
-                if label not in self.obs_label_set:
-                    continue
-                if end > self.doc_length:
-                    print("wrong boundary")
-                    end = self.doc_length
-                        
-                # Setting the "O" flag to False
-                arr[start:end, 0] = False
-                    
-                # If the span is a single token, we can use U
-                if "U" in self.encoding and (end-start)==1:
-                    arr[start, self.label_to_index["U-%s"%label]] = True
-                    continue
-                    
-                # Otherwise, we use B, I and L
-                if "B" in self.encoding:
-                    arr[start, self.label_to_index["B-%s"%label]] = True
-                if "I" in self.encoding:
-                    start_i = (start+1) if "B" in self.encoding else start
-                    end_i = (end-1) if "L" in self.encoding else end
-                    arr[start_i:end_i, self.label_to_index["I-%s"%label]] = True
-                if "L" in self.encoding:
-                    arr[end-1, self.label_to_index["L-%s"%label]] = True
-        return arr
-    
+            # Otherwise, we use B, I and L
+            if "B" in prefixes:
+                data[start, source_index] = label_indices["B-%s"%label]
+            if "I" in prefixes:
+                start_i = (start+1) if "B" in prefixes else start
+                end_i = (end-1) if "L" in prefixes else end
+                data[start_i:end_i, source_index] = label_indices["I-%s"%label]
+            if "L" in prefixes:
+                data[end-1, source_index] = label_indices["L-%s"%label]
+
+    return data
+
         
-def array_to_spans(agg_array: np.ndarray, 
+def token_array_to_spans(agg_array: np.ndarray, 
                    prefix_labels: List[str]) -> Dict[Tuple[int,int], str]:
     """Returns an dictionary of spans corresponding to the aggregated 2D
     array. prefix_labels must be list of prefix labels such as B-PERSON,
@@ -488,14 +502,17 @@ def array_to_spans(agg_array: np.ndarray,
     spans = {}    
     i = 0
     while i < len(agg_array):
+          
+        if np.isscalar(agg_array[i]):
+            value_index = agg_array[i]
+        else: # If we have probabilities, select most likely label
+            value_index = agg_array[i].argmax()
         
-        # We select the most likely label
-        value_index = agg_array[i].argmax()
         if value_index ==0:
             i += 1
             continue
             
-        prefix_label = prefix_labels[agg_array[i].argmax()]
+        prefix_label = prefix_labels[value_index]
         prefix, label = prefix_label.split("-", 1)
         
         # If the prefix is "U", create a single-token span
@@ -508,10 +525,13 @@ def array_to_spans(agg_array: np.ndarray,
             start = i
             i += 1
             while i < len(agg_array):
-                next_val = agg_array[i].argmax()
+                if np.isscalar(agg_array[i]):
+                    next_val = agg_array[i]
+                else:
+                    next_val = agg_array[i].argmax()
                 if next_val == 0:
                     break
-                next_prefix_label = prefix_labels[agg_array[i].argmax()]
+                next_prefix_label = prefix_labels[next_val]
                 next_prefix, next_label = next_prefix_label.split("-", 1)
                 if next_prefix not in {"I", "L"}:
                     break
@@ -521,7 +541,7 @@ def array_to_spans(agg_array: np.ndarray,
     return spans
 
 
-def array_to_token_labels(agg_array: np.ndarray, 
+def token_array_to_probs(agg_array: np.ndarray, 
                             prefix_labels: List[str]) -> Dict[int,Dict[str,float]]:
     """Given a 2D array containing, for each token, the probabilities for a 
     each possible output label in prefix form (B-PERSON, I-ORG, etc.), returns
@@ -531,17 +551,18 @@ def array_to_token_labels(agg_array: np.ndarray,
     """
     
     # Initialising the label sequence
-    token_labels = {}
+    token_probs = {}
     
     # We only look at labels beyond "O", and with non-zero probability
     row_indices, col_indices = np.nonzero(agg_array[:,1:])
     for i, j in zip(row_indices, col_indices):
-        if i not in token_labels:
-            token_labels[i] = {prefix_labels[j+1]:agg_array[i, j+1]}
+        if i not in token_probs:
+            token_probs[i] = {prefix_labels[j+1]:agg_array[i, j+1]}
         else:
-            token_labels[i][prefix_labels[j+1]] = agg_array[i, j+1]
+            token_probs[i][prefix_labels[j+1]] = agg_array[i, j+1]
         
-    return token_labels
+    return token_probs
+
                     
 def is_valid_start(prefix_label, encoding="BIO"):
     """Returns whether the prefix label is allowed to start a sequence"""

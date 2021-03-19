@@ -138,7 +138,7 @@ class SpanEditorAnnotator(SpanAnnotator):
         
         for (start, end), label in doc.user_data["spans"][self.other_name].items():
             edited = self.editor(doc[start:end])
-            if edited is not None:
+            if edited is not None and edited.end > edited.start:
                 yield edited.start, edited.end, label
          
    

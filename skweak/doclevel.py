@@ -107,17 +107,13 @@ class DocumentMajorityAnnotator(base.BaseAnnotator):
     occurrences.
     """
     
-    def __init__(self, basename:str, other_name:str, min_counts=1):
+    def __init__(self, basename:str, other_name:str):
         """Creates a new annotator that looks at (often aggregated) annotations from
         another layer, and annotates entities based on their majority label elsewhere
         in the document. """
         
         super(DocumentMajorityAnnotator, self).__init__(basename)
         self.other_name = other_name
-
-        
-        # Mininum number of labelled occurrences
-        self.min_counts = min_counts
 
     
     def __call__(self, doc: Doc) -> Doc:
@@ -158,23 +154,34 @@ class DocumentMajorityAnnotator(base.BaseAnnotator):
         label_counts = defaultdict(dict)
         form_counts = defaultdict(dict)
         spans = utils.get_agg_spans(doc, self.other_name)
+        
+        all_tokens_low = [tok.lower_ for tok in doc]
+        checked = {}
         for (start, end), (label, prob) in spans.items():
-            lower_tokens = tuple(tok.lower_ for tok in doc[start:end])           
-            label_counts[lower_tokens][label] = label_counts[lower_tokens].get(label, 0) + prob
-
-            tokens = tuple(tok.text for tok in doc[start:end])           
-            form_counts[lower_tokens][tokens] = form_counts[lower_tokens].get(tokens, 0) + prob
-     
+            
+            # We only apply document majority for strings occurring more than once
+            tokens_low = tuple(all_tokens_low[start:end])  
+            if tokens_low not in checked:
+                occurs_several_times = utils.at_least_nb_occurrences(tokens_low, all_tokens_low, 2)
+                checked[tokens_low] = occurs_several_times
+            else:
+                occurs_several_times = checked[tokens_low]
+            
+            # If the string occurs more than once, update the counts
+            if occurs_several_times:
+                
+                label_counts[tokens_low][label] = label_counts[tokens_low].get(label, 0) + prob
+                tokens = tuple(tok.text for tok in doc[start:end])           
+                form_counts[tokens_low][tokens] = form_counts[tokens_low].get(tokens, 0) + prob
+        
         # Search for the most common label for each entity string
         majority_labels = {}
         for lower_tokens, labels_for_ent in label_counts.items():
             majority_label = max(labels_for_ent, key=lambda x: labels_for_ent[x])
-            forms_for_ent = form_counts[lower_tokens]
+            forms_for_ent = form_counts[lower_tokens]                
             majority_form = max(forms_for_ent, key=lambda x: forms_for_ent[x])
             
-            # chech whether the number of counts is >= minimum
-            if labels_for_ent[majority_label] >= self.min_counts:           
-                majority_labels[majority_form] = majority_label
+            majority_labels[majority_form] = majority_label
 
         return majority_labels
                 
