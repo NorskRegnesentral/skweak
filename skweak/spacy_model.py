@@ -1,4 +1,6 @@
                                 
+from __future__ import annotations
+
 from skweak.base import SpanAnnotator
 import spacy
 import itertools, json

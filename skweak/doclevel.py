@@ -1,11 +1,11 @@
 from __future__ import annotations
+
 from skweak.gazetteers import GazetteerAnnotator
-from skweak.base import SpanAnnotator
 from skweak import utils
-from typing import Dict, List, Iterable, Tuple
+from typing import Dict, List, Tuple
 from . import gazetteers, base
-from spacy.tokens import Doc, Token, Span #type: ignore
-from collections import Counter, defaultdict
+from spacy.tokens import Doc
+from collections import defaultdict
 
 class DocumentHistoryAnnotator(base.BaseAnnotator):
     """Annotation based on the document history: 

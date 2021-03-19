@@ -2,7 +2,7 @@
 from __future__ import annotations
 from typing import Callable, Collection, Dict, Iterable, Optional, Sequence, Tuple
 from . import utils
-from spacy.tokens import Span, Token, Doc  #type: ignore
+from spacy.tokens import Span, Token, Doc
 from .base import SpanAnnotator
 
 ####################################################################

@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 import json, re, functools
 from typing import List, Set, Dict, Tuple, Optional, TypeVar
 from spacy.tokens import Doc, Token, Span, DocBin
@@ -328,7 +329,7 @@ def at_least_nb_occurrences(tokens: Tuple[str,...], all_tokens: List[str], min_t
     nb_occurrences = 0
     for i in range(len(all_tokens)):
         for k in range(len(tokens)):
-            if all_tokens[i+k] != tokens[k]:
+            if (i+k) >= len(all_tokens) or all_tokens[i+k] != tokens[k]:
                 break
         else:
             nb_occurrences += 1

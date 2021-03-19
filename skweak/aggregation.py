@@ -1,10 +1,8 @@
 from __future__ import annotations
 
 from abc import abstractmethod
-from imp import source_from_cache
 from typing import Iterable, List, Set
 import numpy as np
-from numpy.lib.utils import source
 from .base import BaseAnnotator
 from spacy.tokens import Doc
 from . import utils
@@ -79,7 +77,7 @@ class BaseAggregator(BaseAnnotator):
                 doc.user_data["agg_spans"] = {self.name: output_spans}
             else:
                 doc.user_data["agg_spans"][self.name] = output_spans
-                
+
             if "agg_probs" not in doc.user_data:
                 doc.user_data["agg_probs"] = {self.name: output_probs}
             else:
@@ -181,7 +179,7 @@ class MajorityVoter(BaseAggregator):
 
         super(MajorityVoter, self).__init__(name, labels, prefixes)
 
-    def _aggregate(self, observations: pandas.DataFrame) -> pandas.DataFrame:
+    def _aggregate(self, observations: pandas.DataFrame, coefficient=0.1) -> pandas.DataFrame:
         """Takes as input a 2D dataframe of shape (nb_entries, nb_sources) 
         associating each token/span to a set of observations from labelling 
         sources, and returns a 2D dataframe of shape (nb_entries, nb_labels)
@@ -196,18 +194,16 @@ class MajorityVoter(BaseAggregator):
         def count_function(x): return np.bincount(x[x >= 0], minlength=len(self.observed_labels))
         label_votes = np.apply_along_axis(count_function, 1, observations.values)
 
-        # If the aggregation is based on token-level segmentation (which has a 
-        # special O label), we need to account that the number of "O" predictions
+        # For token-level segmentation (with a special O label), the number of "O" predictions
         # is typically much higher than any other predictions (since many labelling
-        # sources are specially for detecting specific labels). We thus need to 
+        # sources are targeted for detecting specific labels). We thus need to
         # normalise the number of "O" predictions
         if "O" in self.out_labels:
-            if len(observations.columns) < 5:
-                label_votes[:,0] = label_votes[:,1:].sum(axis=1) < 1
-            else:
-                label_votes = label_votes.astype(np.float32)
-                label_votes[:,0] = label_votes[:,0] / label_votes[:,0].min()
-        
+            label_votes = label_votes.astype(np.float32)
+            min_max = ((label_votes[:,0] - label_votes[:,0].min()) / 
+                       (label_votes[:,0].max() - label_votes[:,0].min()))
+            label_votes[:, 0] = min_max * len(observations.columns) * coefficient
+
         # We start by counting only "concrete" (not-underspecified) labels
         out_label_votes = label_votes[:, :len(self.out_labels)]
         # We also add to the votes the values of underspecified labels
@@ -222,7 +218,6 @@ class MajorityVoter(BaseAggregator):
 
         df = pandas.DataFrame(probs, index=observations.index, columns=self.out_labels)
         return df
-    
 
 
 class HMM(hmmlearn.base._BaseHMM, BaseAggregator):
@@ -259,7 +254,7 @@ class HMM(hmmlearn.base._BaseHMM, BaseAggregator):
             raise RuntimeError("Model is not yet trained")
 
         # Convert the observations to one-hot representations
-        X = {src:self._to_one_hot(observations[src]) for src in observations.columns}
+        X = {src: self._to_one_hot(observations[src]) for src in observations.columns}
 
         # Compute the log likelihoods for each states
         framelogprob = self._compute_log_likelihood(X)
@@ -310,7 +305,7 @@ class HMM(hmmlearn.base._BaseHMM, BaseAggregator):
                 obs = self.get_observation_df(doc)
 
                 # Convert the observations to one-hot representations
-                X = {src:self._to_one_hot(obs[src]) for src in obs.columns}
+                X = {src: self._to_one_hot(obs[src]) for src in obs.columns}
 
                 # Compute its current log-likelihood
                 framelogprob = self._compute_log_likelihood(X)
@@ -381,7 +376,7 @@ class HMM(hmmlearn.base._BaseHMM, BaseAggregator):
             elif "_cased" in source and source.replace("_cased", "_uncased") in sources:
                 self.dependencies[source] = source.replace("_cased", "_uncased")
 
-    def _reset_counts(self, sources):
+    def _reset_counts(self, sources, concentration=1):
         """Reset the various counts/statistics used for for the M-steps, and also
         adds uninformed priors for the start, transition and emission counts"""
 
@@ -404,18 +399,18 @@ class HMM(hmmlearn.base._BaseHMM, BaseAggregator):
         self.start_counts += 1.000001
         self.trans_counts += 1.000001
         for source in sources:
-            self.emit_counts[source][:, :nb_labels] = np.eye(nb_labels)
-            self.emit_counts[source][:, 0] = 1
-            self.emit_counts[source][0, :] = 1
-            self.emit_counts[source] += 0.01
+            self.emit_counts[source][:, :nb_labels] = np.eye(nb_labels) * concentration
+            self.emit_counts[source][:, 0] = concentration
+            self.emit_counts[source][0, :] = concentration
+            self.emit_counts[source] += 0.00001
 
         for source in self.dependencies:
-            self.corr_counts[source] = np.eye(nb_obs)
-            self.corr_counts[source][:, 0] = 1
-            self.corr_counts[source][0, :] = 1
-            self.corr_counts[source] += 0.01
-            self.emit_diff[source] += 0.01
-            self.corr_diff[source] += 0.01
+            self.corr_counts[source] = np.eye(nb_obs) * concentration
+            self.corr_counts[source][:, 0] = concentration
+            self.corr_counts[source][0, :] = concentration
+            self.corr_counts[source] += 0.00001
+            self.emit_diff[source] += 0.00001
+            self.corr_diff[source] += 0.00001
 
     def _add_mv_counts(self, docs: Iterable[Doc]):
         """Getting initial counts for the HMM parameters based on an ensemble of
@@ -551,7 +546,7 @@ class HMM(hmmlearn.base._BaseHMM, BaseAggregator):
     def _postprocess_counts(self):
         """Postprocess the counts to erase invalid starts, transitions or emissions"""
 
-        prefixes = {label.split("-",1)[0] for label in self.out_labels}
+        prefixes = {label.split("-", 1)[0] for label in self.out_labels}
 
         # We make sure the counts for invalid starts (i.e. "L-ORG") are zero
         for i, label in enumerate(self.out_labels):
