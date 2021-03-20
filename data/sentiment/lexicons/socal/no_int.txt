@@ -1,0 +1,215 @@
+minst	-3
+mindre	-1.5
+knapt	-1.5
+neppe	-1.5
+nesten	-1.5
+ikke for	-1.5
+ikke bare	0.5
+ikke bare	0.5
+ikke bare	0.5
+bare	-0.5
+litt	-0.5
+litt	-0.5
+litt	-0.5
+marginalt	-0.5
+relativt	-0.3
+mildt	-0.3
+moderat	-0.3
+noe	-0.3
+delvis	-0.3
+litt	-0.3
+uten tvil	-0.2
+stort sett	-0.2
+hovedsakelig	-0.2
+minst	-0.9
+til en viss grad	-0.2
+til en viss grad	-0.2
+slags	-0.3
+sorta	-0.3
+slags	-0.3
+ganske	-0.3
+ganske	-0.2
+pen	-0.1
+heller	-0.1
+umiddelbart	0.1
+ganske	0.1
+perfekt	0.1
+konsekvent	0.1
+virkelig	0.2
+klart	0.2
+åpenbart	0.2
+absolutt	0.2
+helt	0.2
+definitivt	0.2
+absolutt	0.2
+konstant	0.2
+høyt	0.2
+veldig	0.2
+betydelig	0.2
+merkbart	0.2
+karakteristisk	0.2
+ofte	0.2
+forferdelig	0.2
+totalt	0.2
+stort sett	0.2
+fullt	0.2
+ekstra	0.3
+virkelig	0.3
+spesielt	0.3
+spesielt	0.3
+jævla	0.3
+intensivt	0.3
+rett og slett	0.3
+helt	0.3
+sterkt	0.3
+bemerkelsesverdig	0.3
+stort sett	0.3
+utrolig	0.3
+påfallende	0.3
+fantastisk	0.3
+i det vesentlige	0.3
+uvanlig	0.3
+dramatisk	0.3
+intenst	0.3
+ekstremt	0.4
+så	0.4
+utrolig	0.4
+fryktelig	0.4
+enormt	0.4
+umåtelig	0.4
+slik	0.4
+utrolig	0.4
+sinnsykt	0.4
+opprørende	0.4
+radikalt	0.4
+blærende	0.4
+unntaksvis	0.4
+overstigende	0.4
+uten tvil	0.4
+vei	0.4
+langt	0.4
+dypt	0.4
+super	0.4
+dypt	0.4
+universelt	0.4
+rikelig	0.4
+uendelig	0.4
+eksponentielt	0.4
+enormt	0.4
+grundig	0.4
+lidenskapelig	0.4
+voldsomt	0.4
+latterlig	0.4
+uanstendig	0.4
+vilt	0.4
+ekstraordinært	0.5
+spektakulært	0.5
+fenomenalt	0.5
+monumentalt	0.5
+utrolig	0.5
+helt	0.5
+mer	-0.5
+enda mer	0.5
+mer enn	0.5
+mest	1
+ytterste	1
+totalt	0.5
+monumental	0.5
+flott	0.5
+enorm	0.5
+enorme	0.5
+massiv	0.5
+fullført	0.4
+uendelig	0.4
+uendelig	0.4
+absolutt	0.5
+rungende	0.4
+uskadd	0.4
+drop dead	0.4
+massiv	0.5
+kollossal	0.5
+utrolig	0.5
+ufattelig	0.5
+abject	0.5
+en slik	0.4
+en slik	0.4
+fullstendig	0.4
+dobbelt	0.3
+klar	0.3
+klarere	0.2
+klareste	0.5
+stor	0.3
+større	0.2
+største	0.5
+åpenbart	0.03
+alvorlig	0.3
+dyp	0.3
+dypere	0.2
+dypeste	0.5
+betydelig	0.2
+viktig	0.3
+større	0.2
+avgjørende	0.3
+umiddelbar	0.1
+synlig	0.1
+merkbar	0.1
+konsistent	0.1
+høy	0.2
+høyere	0.1
+høyeste	0.5
+ekte	0.2
+sant	0.2
+ren	0.2
+bestemt	0.2
+mye	0.2
+liten	-0.3
+mindre	-0.2
+minste	-0.5
+moll	-0.3
+moderat	-0.3
+mild	-0.3
+lett	-0.5
+minste	-0.9
+ubetydelig	-0.5
+ubetydelig	-0.5
+lav	-2
+lavere	-1.5
+laveste	-3
+få	-2
+færre	-1.5
+færrest	-3
+mye	0.3
+mange	0.3
+flere	0.2
+flere	0.2
+forskjellige	0.2
+noen få	-0.3
+et par	-0.3
+et par	-0.3
+mye	0.3
+masse	0.3
+i det hele tatt	-0.5
+mye	0.5
+en hel masse	0.5
+en enorm mengde på	0.5
+enorme antall på	0.5
+en pokker på	0.5
+en mengde på	0.5
+en mutltid på	0.5
+tonn	0.5
+tonn	0.5
+en haug med	0.3
+hauger på	0.3
+rikelig med	0.3
+en viss mengde	-0.2
+noen	-0.2
+litt av	-0.5
+litt av	-0.5
+litt av	-0.5
+vanskelig å	-1.5
+vanskelig til	-1.5
+tøff til	-1.5
+ikke i nærheten av	-3
+ikke alt det	-1.2
+ikke det	-1.5
+ut av	-2
