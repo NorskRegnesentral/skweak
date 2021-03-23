@@ -530,20 +530,21 @@ class HMM(hmmlearn.base._BaseHMM, BaseAggregator):
         mi_state = {}
         for source in self.emit_counts:
             mi_state[source] = get_mutual_info(self.emit_counts[source])
-        norm = sum(mi_state.values())
+        norm = sum(mi_state.values()) / len(mi_state)
         nmi_state = {s:(mi/norm) for s, mi in mi_state.items()}
         
         mi_sources = {}
         for src, src2 in self.corr_counts:
             mi_sources[(src, src2)] = get_mutual_info(self.corr_counts[(src,src2)])
-        norm = sum(mi_sources.values())
+        norm = sum(mi_sources.values()) / len(mi_sources)
         nmi_sources = {src_pair:(mi/norm) for src_pair, mi in mi_sources.items()}
         
         self.weights = {}
         for source in nmi_state:
             nmi_corr_sources = [nmi_sources[(s1,s2)] for s1, s2 in nmi_sources if s1==source]
-            max_nmi_corr_sources = np.max(nmi_corr_sources) if nmi_corr_sources else 0
-            d_value = nmi_state[source] - max_nmi_corr_sources
+            avg_nmi_corr_sources = np.mean(nmi_corr_sources) if nmi_corr_sources else 0
+      #      print(source, "dval is", nmi_state[source], "-", avg_nmi_corr_sources)
+            d_value = nmi_state[source] - avg_nmi_corr_sources
             self.weights[source] = 1/(1+np.exp(-d_value))
                                                  
         
