@@ -595,14 +595,7 @@ class HMM(hmmlearn.base._BaseHMM, BaseAggregator):
                                       columns=self.observed_labels)
                 print(df.round(nb_digits))
                 print("--------")
-        for source in self.corr_counts:
-            if sources == None or source in sources:
-                print("Correlation model for source: %s (dependent: %s)" % (source, self.dependencies[source]))
-                df = pandas.DataFrame(self.corr_probs[source], index=self.observed_labels,
-                                      columns=self.observed_labels).round(nb_digits)
-                df["weight"] = self.corr_weights[source]
-                print(df.round(nb_digits))
-                print("--------")
+
 
     def save(self, filename):
         """Saves the HMM model to a file"""
@@ -629,8 +622,9 @@ def get_mutual_info(counts):
     for i in range(counts.shape[0]):
         for j in range(counts.shape[1]):
             joint_prob = counts[i,j] / total
-            logval = np.log(joint_prob / (marginal_rows[i]*marginal_cols[j]))
-            sum_total += joint_prob * logval
+            if joint_prob > 0:
+                logval = np.log(joint_prob / (marginal_rows[i]*marginal_cols[j]))
+                sum_total += joint_prob * logval
     return sum_total
 
 
