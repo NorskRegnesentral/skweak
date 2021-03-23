@@ -523,15 +523,26 @@ class HMM(hmmlearn.base._BaseHMM, BaseAggregator):
             self._update_weights()
 
 
-    def _update_weights(self):
+    def _update_weights(self, beta=0.1):
         """Update the labelling source weights according to the correlation-based
         feature weighting approach of Jiang et al, 2019"""
         
-        mi_state = {}
+        fb_state = {}
         for source in self.emit_counts:
-            mi_state[source] = get_mutual_info(self.emit_counts[source])
-        norm = sum(mi_state.values()) / len(mi_state)
-        nmi_state = {s:(mi/norm) for s, mi in mi_state.items()}
+            concrete_emits = self.emit_counts[source][:,:len(self.out_labels)].copy()
+            
+            underspec_emits = self.emit_counts[source][:,len(self.out_labels):]
+            underspec_matrix = (self.get_underspecification_matrix() / 
+                                self.get_underspecification_matrix().sum(axis=1)[:,np.newaxis])
+            concrete_emits += underspec_emits.dot(underspec_matrix)
+            
+            tp = concrete_emits[1:,1:].diagonal().sum()
+            micro_p = tp / self.emit_counts[source][:,1:].sum()
+            micro_r = tp / self.emit_counts[source][1:].sum()
+            fb_state[source] = (1+beta**2) * micro_p * micro_r / (((beta**2) * micro_p) + micro_r)
+
+        norm = sum(fb_state.values()) / len(fb_state)
+        nfb_state = {s:(mi/norm) for s, mi in fb_state.items()}
         
         mi_sources = {}
         for src, src2 in self.corr_counts:
@@ -540,11 +551,11 @@ class HMM(hmmlearn.base._BaseHMM, BaseAggregator):
         nmi_sources = {src_pair:(mi/norm) for src_pair, mi in mi_sources.items()}
         
         self.weights = {}
-        for source in nmi_state:
+        for source in nfb_state:
             nmi_corr_sources = [nmi_sources[(s1,s2)] for s1, s2 in nmi_sources if s1==source]
             avg_nmi_corr_sources = np.mean(nmi_corr_sources) if nmi_corr_sources else 0
       #      print(source, "dval is", nmi_state[source], "-", avg_nmi_corr_sources)
-            d_value = nmi_state[source] - avg_nmi_corr_sources
+            d_value = nfb_state[source] - avg_nmi_corr_sources
             self.weights[source] = 1/(1+np.exp(-d_value))
                                                  
         
@@ -626,6 +637,7 @@ def get_mutual_info(counts):
                 logval = np.log(joint_prob / (marginal_rows[i]*marginal_cols[j]))
                 sum_total += joint_prob * logval
     return sum_total
+
 
 
 # class SnorkelAggregator(BaseAggregator):
