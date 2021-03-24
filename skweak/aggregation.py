@@ -204,7 +204,7 @@ class MajorityVoter(BaseAggregator):
             label_votes = label_votes.astype(np.float32)
             min_max = ((label_votes[:,0] - label_votes[:,0].min()) / 
                        (label_votes[:,0].max() - label_votes[:,0].min()))
-            label_votes[:, 0] = min_max * len(observations.columns) * coefficient
+            label_votes[:, 0] = (min_max * len(observations.columns) * coefficient) + 1E-20
 
         # We start by counting only "concrete" (not-underspecified) labels
         out_label_votes = label_votes[:, :len(self.out_labels)]
@@ -217,7 +217,6 @@ class MajorityVoter(BaseAggregator):
         # Normalisation
         total = np.expand_dims(out_label_votes.sum(axis=1), axis=1)
         probs = out_label_votes / total
-
         df = pandas.DataFrame(probs, index=observations.index, columns=self.out_labels)
         return df
 
@@ -305,15 +304,14 @@ class HMM(hmmlearn.base._BaseHMM, BaseAggregator):
 
                 # Transform the document annotations into observations
                 obs = self.get_observation_df(doc)
-
+                
                 # Convert the observations to one-hot representations
                 X = {src: self._to_one_hot(obs[src]) for src in obs.columns}
-
+                
                 # Compute its current log-likelihood
                 framelogprob = self._compute_log_likelihood(X)
-
                 # Make sure there is no token with no possible states
-                if framelogprob.max(axis=1).min() < -100000:
+                if np.isnan(framelogprob).any() or framelogprob.max(axis=1).min() < -100000:
                     pos = framelogprob.max(axis=1).argmin()
                     print("problem found for token", doc[pos])
                     return framelogprob
@@ -348,7 +346,7 @@ class HMM(hmmlearn.base._BaseHMM, BaseAggregator):
         sampled_docs = []
         for i, doc in enumerate(docs):
             for source in doc.user_data.get("spans", {}):
-                if source not in sources and source not in self.sources_to_avoid:
+                if not any([to_avoid in source for to_avoid in self.sources_to_avoid]):
                     sources.add(source)
             sampled_docs.append(doc)
             if i > max_number:
@@ -437,11 +435,12 @@ class HMM(hmmlearn.base._BaseHMM, BaseAggregator):
             for source in one_hots:
                 mv_counts = np.dot(agg_array.T, one_hots[source])
                 self.emit_counts[source] += mv_counts
-                
+
             for src, src2 in self.corr_counts:
                 if src in one_hots and src2 in one_hots:
                     self.corr_counts[(src, src2)] += np.dot(one_hots[src2].T, one_hots[src])
 
+            
     def _compute_log_likelihood(self, X):
         """Computes the log likelihood for the observed sequence"""
 
@@ -453,7 +452,7 @@ class HMM(hmmlearn.base._BaseHMM, BaseAggregator):
 
             # Impossible states have a logprob of -inf
             log_probs = np.ma.log(probs).filled(-np.inf)
-            
+
             # We multiply by the source weight
             log_probs *= self.weights[source]
             
@@ -466,6 +465,7 @@ class HMM(hmmlearn.base._BaseHMM, BaseAggregator):
             if source in X:
                 X_all_obs += X[source][:, :len(self.out_labels)]
         logsum = np.where(X_all_obs, logsum, -np.inf)
+
         return logsum
 
     def _to_one_hot(self, vector):
@@ -527,35 +527,56 @@ class HMM(hmmlearn.base._BaseHMM, BaseAggregator):
         """Update the labelling source weights according to the correlation-based
         feature weighting approach of Jiang et al, 2019"""
         
-        fb_state = {}
+        # We compute the F-scores for each source
+        f_scores = {}
         for source in self.emit_counts:
             concrete_emits = self.emit_counts[source][:,:len(self.out_labels)].copy()
             
+            # We also need to account for underspecified labels
+            # (by "spreading" their probabilities over all possible values)
             underspec_emits = self.emit_counts[source][:,len(self.out_labels):]
             underspec_matrix = (self.get_underspecification_matrix() / 
                                 self.get_underspecification_matrix().sum(axis=1)[:,np.newaxis])
             concrete_emits += underspec_emits.dot(underspec_matrix)
             
-            tp = concrete_emits[1:,1:].diagonal().sum()
-            micro_p = tp / self.emit_counts[source][:,1:].sum()
-            micro_r = tp / self.emit_counts[source][1:].sum()
-            fb_state[source] = (1+beta**2) * micro_p * micro_r / (((beta**2) * micro_p) + micro_r)
-
-        norm = sum(fb_state.values()) / len(fb_state)
-        nfb_state = {s:(mi/norm) for s, mi in fb_state.items()}
+            # To compute the recall, we only consider observations that can
+            # actually be produced by the source
+            columns_with_obs = concrete_emits.max(axis=0) > 2
+            
+            # For token-level segmentation, we must account for the O token
+            # We compute the micro-averaged precision and recall
+            if "O" in self.out_labels:
+                tp = concrete_emits[1:,1:].diagonal().sum()
+                micro_p = tp / concrete_emits[:,1:].sum()
+                tp_fn = concrete_emits[columns_with_obs][1:].sum()
+            else:
+                tp = concrete_emits.diagonal().sum()
+                micro_p = tp / concrete_emits.sum()
+                tp_fn = concrete_emits[columns_with_obs].sum()
+            
+            micro_r = (tp/tp_fn) if tp_fn > 0 else 0
+            
+            # We compute the final F-score                 
+            f_scores[source] = (1+beta**2) * micro_p * micro_r / (((beta**2) * micro_p) + micro_r)
+               
+        # We normalise the F-scores
+        norm = sum(f_scores.values()) / len(f_scores)
+        norm_f_scores = {s:(mi/norm) for s, mi in f_scores.items()}
         
+        # We then compute the mutual information between sources
         mi_sources = {}
         for src, src2 in self.corr_counts:
             mi_sources[(src, src2)] = get_mutual_info(self.corr_counts[(src,src2)])
         norm = sum(mi_sources.values()) / len(mi_sources)
         nmi_sources = {src_pair:(mi/norm) for src_pair, mi in mi_sources.items()}
         
+        # We finally compute the weight as in Jiang 2019, expect the relevancy
+        # is here computed from the F-scores instead of the mutual information
         self.weights = {}
-        for source in nfb_state:
+        for source in norm_f_scores:
             nmi_corr_sources = [nmi_sources[(s1,s2)] for s1, s2 in nmi_sources if s1==source]
             avg_nmi_corr_sources = np.mean(nmi_corr_sources) if nmi_corr_sources else 0
-      #      print(source, "dval is", nmi_state[source], "-", avg_nmi_corr_sources)
-            d_value = nfb_state[source] - avg_nmi_corr_sources
+            d_value = norm_f_scores[source] - avg_nmi_corr_sources
             self.weights[source] = 1/(1+np.exp(-d_value))
                                                  
         
