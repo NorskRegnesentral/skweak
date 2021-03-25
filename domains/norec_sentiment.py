@@ -1,6 +1,6 @@
 from skweak.base import BaseAnnotator, CombinedAnnotator
 from skweak.sentiment_lexicons import LexiconAnnotator, NRC_SentAnnotator, VADAnnotator, SocalAnnotator, BUTAnnotator
-from skweak.sentiment_models import DocBOWAnnotator, MultilingualAnnotator
+from skweak.sentiment_models import DocBOWAnnotator, MultilingualAnnotator, MBertAnnotator
 import os
 from spacy.tokens import Doc
 from typing import Sequence, Tuple, Optional, Iterable
@@ -52,5 +52,6 @@ class FullSentimentAnnotator(CombinedAnnotator):
     def add_ml_models(self):
         self.add_annotator(DocBOWAnnotator("doc-level-norec", "../data/sentiment/models/bow"))
         self.add_annotator(MultilingualAnnotator("nlptown-bert-multilingual-sentiment"))
+        self.add_annotator(MBertAnnotator("mbert-sst"))
         return self
 

@@ -1,4 +1,4 @@
-from skweak.base import BaseAnnotator
+from skweak.base import SpanAnnotator
 import os
 from spacy.tokens import Doc
 from typing import Sequence, Tuple, Optional, Iterable
@@ -8,15 +8,47 @@ from sklearn.svm import LinearSVC
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics import f1_score
 
-from transformers import pipeline
+from transformers import pipeline, BertForSequenceClassification, BertTokenizer
 
 import tarfile
 import pickle
 import os
 
 
-class MultilingualAnnotator(BaseAnnotator):
-    """Annotation based on a TF-IDF Bag-of-words document-level classifier"""
+class MBertAnnotator(SpanAnnotator):
+    """Annotation based on multi-lingual BERT trained on Stanford Sentiment Treebank"""
+    def __init__(self, name):
+        super(MBertAnnotator, self).__init__(name)
+        self.classifier = BertForSequenceClassification.from_pretrained("../data/sentiment/models/sst", num_labels=3)
+        self.classifier.eval()
+        self.tokenizer = BertTokenizer.from_pretrained("bert-base-multilingual-uncased")
+        print("Loaded mBERT from {}".format("../data/sentiment/models/sst"))
+
+    def find_spans(self, doc: Doc) -> Iterable[Tuple[int, int, str]]:
+
+        if "spans" not in doc.user_data:
+            doc.user_data["spans"] = {self.name: {}}
+        else:
+            doc.user_data["spans"][self.name] = {}
+
+        text = [" ".join([t.text for t in doc])]
+        encoding = self.tokenizer(text, return_tensors='pt', padding=True, truncation=True)
+        output = self.classifier(**encoding)
+        # classifier outputs a dict, eg {'label': '5 stars', 'score': 0.99}
+        # so we need to get the label and transform it to an int
+        _, p = output.logits.max(1)
+        label = int(p[0])
+        yield 0, len(doc), label
+
+    def pipe(self, docs: Iterable[Doc]) -> Iterable[Doc]:
+        for doc in docs:
+            for bidx, eidx, label in self.find_spans(doc):
+                doc.user_data["spans"][self.name][(bidx, eidx)] = label
+            yield doc
+
+
+class MultilingualAnnotator(SpanAnnotator):
+    """Annotation based on multi-lingual BERT trained on review data in 6 languages"""
 
     def __init__(self, name):
         """Creates a new annotator based on a Spacy model. """
@@ -55,7 +87,7 @@ class MultilingualAnnotator(BaseAnnotator):
             yield doc
 
 
-class DocBOWAnnotator(BaseAnnotator):
+class DocBOWAnnotator(SpanAnnotator):
     """Annotation based on a TF-IDF Bag-of-words document-level classifier"""
 
     def __init__(self, name, model_path, doclevel_data=None):
