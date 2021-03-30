@@ -570,7 +570,7 @@ class HMM(hmmlearn.base._BaseHMM, BaseAggregator):
         norm = sum(mi_sources.values()) / len(mi_sources)
         nmi_sources = {src_pair:(mi/norm) for src_pair, mi in mi_sources.items()}
         
-        # We finally compute the weight as in Jiang 2019, expect the relevancy
+        # We finally compute the weight as in Jiang 2019, except the relevancy
         # is here computed from the F-scores instead of the mutual information
         self.weights = {}
         for source in norm_f_scores:

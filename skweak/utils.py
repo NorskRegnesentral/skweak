@@ -196,7 +196,7 @@ def docbin_writer(docs: List, docbin_output_path: str):
     print("done")
 
                    
-def json_writer(docs, json_file_path: str, source: str="hmm"):
+def json_writer(docs, json_file_path: str, source: str=None):
     """Converts a collection of Spacy Doc objects to a JSON format,
     such that it can be used to train the Spacy NER model. 
     
@@ -213,7 +213,8 @@ def json_writer(docs, json_file_path: str, source: str="hmm"):
     for i, doc in enumerate(docs):
         
         # We replace the NER labels with the annotation source
-        doc = replace_ner_spans(doc, source)
+        if source is not None:
+            doc = replace_ner_spans(doc, source)
         
         # We dump the JSON content to the file
         d = spacy.gold.docs_to_json([doc])
@@ -652,6 +653,6 @@ def display_entities(doc: Doc, layer=None):
 
     entities = [{"start":start, "end":end, "label":label} for (start,end), label in entities.items()]
     doc2 = {"text":text, "title":None, "ents":entities}
-    spacy.displacy.render(doc2, jupyter=True, style="ent", manual=True)
+    return spacy.displacy.render(doc2, jupyter=False, style="ent", manual=True)
 
 
