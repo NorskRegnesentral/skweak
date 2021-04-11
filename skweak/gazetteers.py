@@ -134,9 +134,15 @@ class Trie:
     indicates whether the node is terminal or not. 
     """
     
-    def __init__(self): 
+    def __init__(self, entries:List[List[str]]=None): 
+        """Creates a new trie. If provided, entries must be a list of tokenised entries"""
+        
         self.start = {}
         self.len = 0
+        
+        if entries is not None:
+            for entry in entries:
+                self.add(entry)
 
         
     def find_longest_match(self, tokens: List[str], case_sensitive=True) -> List[str]: 

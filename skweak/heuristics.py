@@ -117,16 +117,18 @@ class SpanEditorAnnotator(SpanAnnotator):
     """Annotation by editing/correcting text spans from another source 
     based on a simple editing function"""
     
-    def __init__(self, name: str, other_name: str, editor: Callable[[Span], Span]):
+    def __init__(self, name: str, other_name: str, editor: Callable[[Span], Span],
+                 label: Optional[str]=None):
         
         """Creates a new annotator that looks at the annotations from the
-        other_name source, and adds them to this source if it satisfied a 
-        given constraint on spans. If label is other than None, the method
-        simply reuses the same label as the one specified by other_name."""
+        other_name source, and edits the span according to a given function.
+        If label is other than None, the method simply reuses the same label 
+        as the one specified by other_name."""
         
         super(SpanEditorAnnotator, self).__init__(name)
         self.other_name = other_name
         self.editor = editor
+        self.label = label
 
             
     def find_spans(self, doc: Doc) -> Iterable[Tuple[int, int, str]]:
@@ -139,7 +141,8 @@ class SpanEditorAnnotator(SpanAnnotator):
         for (start, end), label in doc.user_data["spans"][self.other_name].items():
             edited = self.editor(doc[start:end])
             if edited is not None and edited.end > edited.start:
-                yield edited.start, edited.end, label
+                label_to_produce = self.label if self.label is not None else label
+                yield edited.start, edited.end, label_to_produce
          
    
 ####################################################################

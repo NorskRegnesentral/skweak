@@ -211,7 +211,7 @@ class MajorityVoter(BaseAggregator):
         if "O" in self.out_labels:
             label_votes = label_votes.astype(np.float32)
             min_max = ((label_votes[:,0] - label_votes[:,0].min()) / 
-                       (label_votes[:,0].max() - label_votes[:,0].min()))
+                       (label_votes[:,0].max() - label_votes[:,0].min() + 1E-20))
             label_votes[:, 0] = (min_max * len(observations.columns) * coefficient) + 1E-20
 
         # We start by counting only "concrete" (not-underspecified) labels
@@ -234,7 +234,7 @@ class HMM(hmmlearn.base._BaseHMM, BaseAggregator):
     without access to the actual labels, using the Baum-Welch algorithm 
     (a special case of Expectation-Maximisation)"""
 
-    def __init__(self, name: str, out_labels: List[str], prefixes: str = "BIO", use_weighting = True):
+    def __init__(self, name: str, out_labels: List[str], prefixes: str = "BIO",  redundancy_weight=0.1):
         """Initialises the HMM model (which must be fitted before use). 
         Arguments:
         - name is the aggregator name
@@ -243,10 +243,12 @@ class HMM(hmmlearn.base._BaseHMM, BaseAggregator):
           the aggregator does not perform any token-level segmentation, but instead 
           groups together spans with the same (start,end) boundary, and aggregates 
           their labels. In other words, if prefixes=False, the aggregation is done
-          at the level of unique spans instead of tokens."""
+          at the level of unique spans instead of tokens.
+        - redundancy weight is the strength of the correlation-based weighting of each 
+          labelling function. A value of 0.0 disables the weighting"""
 
         BaseAggregator.__init__(self, name, out_labels, prefixes)
-        self.use_weighting = use_weighting
+        self.redundancy_weight = redundancy_weight
         
     def __call__(self, doc: Doc) -> Doc:
         """Aggregates all weak supervision sources (and fits the parameters if
@@ -373,10 +375,13 @@ class HMM(hmmlearn.base._BaseHMM, BaseAggregator):
         for source in X:
 
             # Include the weights to the probabilities
-            weighted_probs = np.power(self.emit_probs[source], self.weights[source])
+            if self.redundancy_weight:
+                probs = np.power(self.emit_probs[source], self.weights[source])
+            else:
+                probs = self.emit_probs[source]
             
             # We compute the likelihood of each state given the observations
-            probs = np.dot(X[source], weighted_probs.T)
+            probs = np.dot(X[source], probs.T)
 
             # Impossible states have a logprob of -inf
             log_probs = np.ma.log(probs).filled(-np.inf)
@@ -464,7 +469,7 @@ class HMM(hmmlearn.base._BaseHMM, BaseAggregator):
         mv.sources_to_avoid = self.sources_to_avoid
         
         # Also apply weights to the majority voter
-        if self.use_weighting:
+        if self.redundancy_weight:
             self._update_weights()
             mv.weights = self.weights
             
@@ -547,7 +552,7 @@ class HMM(hmmlearn.base._BaseHMM, BaseAggregator):
             self.emit_probs[source] = self.emit_counts[source] / normalisation
         
         # Compute weights per labelling sources
-        if self.use_weighting: 
+        if self.redundancy_weight: 
             self._update_weights()
     
        
@@ -570,7 +575,7 @@ class HMM(hmmlearn.base._BaseHMM, BaseAggregator):
            
                 # The weight decreases with the number of correlated labelling functions
                 # that have a high recall with the current function
-                self.weights[source][i] = 1/(1+np.exp(np.sum(recalls_with_corr_sources)))               
+                self.weights[source][i] = 1/(1+self.redundancy_weight * np.exp(np.sum(recalls_with_corr_sources)))               
             
 
     def _postprocess_counts(self):

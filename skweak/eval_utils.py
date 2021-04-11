@@ -146,7 +146,7 @@ def compute_raw_numbers(docs, all_labels, target_source, conf_threshold=0.5):
 
                 
         gold_probs, pred_probs = get_probs(doc, all_labels, target_source)
-        tok_logloss += sklearn.metrics.log_loss(gold_probs, pred_probs, normalize=False)
+        tok_logloss += 0 #sklearn.metrics.log_loss(gold_probs, pred_probs, normalize=False)
         tok_tp_tn += sum(gold_probs.argmax(axis=1) == pred_probs.argmax(axis=1))
         tok_nb += len(doc)
 

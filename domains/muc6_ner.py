@@ -193,7 +193,7 @@ class NERAnnotator(CombinedAnnotator):
         
         print("Loading shallow functions")
         self.add_shallow()
-        print("Loading Spacy NER models")
+        print("Loading NER models")
         self.add_models()
         print("Loading gazetteer supervision modules")
         self.add_gazetteers()        
@@ -211,7 +211,7 @@ class NERAnnotator(CombinedAnnotator):
         self.add_annotator(FunctionAnnotator("money_detector", money_generator))
         
         # Detection based on casing
-        is_not_title = lambda tok: tok.text not in {"Mr.", "Miss", "Mrs."}
+        is_not_title = lambda tok: tok.text.rstrip(".") not in {"Mr", "Miss", "Mrs", "Sen", "Dr"}
         proper_detector = TokenConstraintAnnotator("proper_detector", lambda tok: utils.is_likely_proper(tok) and is_not_title(tok), "ENT")
     
         # Detection based on casing, but allowing some lowercased tokens
@@ -244,11 +244,14 @@ class NERAnnotator(CombinedAnnotator):
         company_type_detector = SpanConstraintAnnotator("company_type_detector", "proper2_detector", 
                                                         ends_with_legal_suffix, "COMPANY")
 
-        # Detection of full person names
+        # Detection of person names
         full_name_detector = SpanConstraintAnnotator("full_name_detector", "proper2_detector", 
                                                      FullNameDetector(), "PERSON")
+        name_detector2 = SpanConstraintAnnotator("name_detector", "proper_detector", 
+                                                 constraint=name_detector, label="PERSON")
         
-        for annotator in [misc_detector, legal_detector, company_type_detector, full_name_detector]:
+        for annotator in [misc_detector, legal_detector, company_type_detector, 
+                          full_name_detector, name_detector2]:
             annotator.add_incompatible_sources(exclusives)
             self.add_annotator(annotator)
          
@@ -260,28 +263,27 @@ class NERAnnotator(CombinedAnnotator):
         self.add_annotator(SnipsAnnotator("snips"))
         return self
     
-        
+    
     def add_models(self):
         """Adds Spacy NER models to the annotator"""
         
- #       self.add_annotator(ModelAnnotator("core_web_md", "en_core_web_md"))
- #       self.add_annotator(TruecaseAnnotator("core_web_md_truecase", "en_core_web_md", FORM_FREQUENCIES))
-        self.add_annotator(ModelAnnotator("conll2003", os.path.dirname(__file__) + "/../data/conll2003/model-best"))
-        self.add_annotator(TruecaseAnnotator("conll2003_truecase", os.path.dirname(__file__) + "/../data/conll2003/model-best", FORM_FREQUENCIES))
+#        self.add_annotator(ModelAnnotator("core_web_md", "en_core_web_md"))
+#        self.add_annotator(TruecaseAnnotator("core_web_md_truecase", "en_core_web_md", FORM_FREQUENCIES))
+        self.add_annotator(ModelAnnotator("conll2003", os.path.dirname(__file__) + "/../data/conll2003"))
+        self.add_annotator(TruecaseAnnotator("conll2003_truecase", os.path.dirname(__file__) + "/../data/conll2003", FORM_FREQUENCIES))
         self.add_annotator(ModelAnnotator("BTC", os.path.dirname(__file__) + "/../data/BTC"))
         self.add_annotator(TruecaseAnnotator("BTC_truecase", os.path.dirname(__file__) + "/../data/BTC", FORM_FREQUENCIES))
-   #     self.add_annotator(ModelAnnotator("SEC", "data/SEC-filings"))
 
         # Avoid spans that start with an article
         editor = lambda span: span[1:] if span[0].lemma_ in {"the", "a", "an"} else span
         self.add_annotator(SpanEditorAnnotator("edited_BTC", "BTC", editor))
         self.add_annotator(SpanEditorAnnotator("edited_BTC_truecase", "BTC_truecase", editor))
- #       self.add_annotator(SpanEditorAnnotator("edited_core_web_md", "core_web_md", editor))
- #       self.add_annotator(SpanEditorAnnotator("edited_core_web_md_truecase", "core_web_md_truecase", editor))        
         self.add_annotator(SpanEditorAnnotator("edited_conll2003", "conll2003", editor))
         self.add_annotator(SpanEditorAnnotator("edited_conll2003_truecase", "conll2003_truecase", editor))
+#        self.add_annotator(SpanEditorAnnotator("edited_core_web_md", "core_web_md", editor))
+#        self.add_annotator(SpanEditorAnnotator("edited_core_web_md_truecase", "core_web_md_truecase", editor))
 
-        return self
+        return self    
         
     def add_gazetteers(self, full_load=True):
         """Adds gazetteer supervision models (company names and wikidata)."""
@@ -474,8 +476,17 @@ class FullNameDetector():
         if len(span) < 2 or len(span) > 5:
             return False
         
-        return (span[0].text in self.first_names and 
-                span[-1].is_alpha and span[-1].is_title)
+        if span[0].text in self.first_names and span[-1].is_alpha and span[-1].is_title:
+           return True
+       
+       
+def name_detector(span: Span) -> bool: 
+    """Search for names that have a Mr/Mrs/Miss/Dr/Sen in front"""
+    
+    if span.start==0 or len(span) > 5 or not span[-1].is_alpha or not span[-1].is_title:
+        return False
+    
+    return span.doc[span.start-1].text.rstrip(".") in {"Mr", "Mrs", "Miss", "Dr", "Sen"}  
                     
 
 class SnipsAnnotator(SpanAnnotator):

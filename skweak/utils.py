@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json, re, functools
-from typing import List, Set, Dict, Tuple, Optional, TypeVar
+from typing import List, Set, Dict, Tuple, Optional, TypeVar, Iterable
 from spacy.tokens import Doc, Token, Span, DocBin
 import numpy as np
 
@@ -173,7 +173,7 @@ def docbin_reader(docbin_file_path: str, spacy_model_name:str = "en_core_web_md"
             return
 
 
-def docbin_writer(docs: List, docbin_output_path: str):
+def docbin_writer(docs: Iterable[Doc], docbin_output_path: str):
     """Writes a stream of Spacy Doc objects to a binary file in the DocBin format."""
 
     import spacy.attrs
