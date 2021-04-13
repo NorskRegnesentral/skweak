@@ -1,1 +1,1 @@
-from . import conll2003_ner
+from . import conll2003_ner, muc6_ner

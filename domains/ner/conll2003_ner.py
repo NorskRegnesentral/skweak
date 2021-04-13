@@ -218,7 +218,7 @@ class NERAnnotator(CombinedAnnotator):
         proper2_detector.add_gap_tokens(LOWERCASED_TOKENS | NAME_PREFIXES)
         
         # Detection based on part-of-speech tags
-        nnp_detector = TokenConstraintAnnotator("nnp_detector", lambda tok: tok.tag_=="NNP", "ENT")
+        nnp_detector = TokenConstraintAnnotator("nnp_detector", lambda tok: tok.tag_ in {"NNP", "NNPS"}, "ENT")
         
         # Detection based on dependency relations (compound phrases)
         compound = lambda tok: utils.is_likely_proper(tok) and utils.in_compound(tok)
@@ -266,14 +266,14 @@ class NERAnnotator(CombinedAnnotator):
         self.add_annotator(ModelAnnotator("core_web_md", "en_core_web_md"))
         self.add_annotator(TruecaseAnnotator("core_web_md_truecase", "en_core_web_md", FORM_FREQUENCIES))
  #       self.add_annotator(ModelAnnotator("conll2003", os.path.dirname(__file__) + "/../data/conll2003"))
- #       self.add_annotator(ModelAnnotator("BTC", os.path.dirname(__file__) + "/../data/BTC"))
- #       self.add_annotator(TruecaseAnnotator("BTC_truecase", os.path.dirname(__file__) + "/../data/BTC", FORM_FREQUENCIES))
+        self.add_annotator(ModelAnnotator("BTC", os.path.dirname(__file__) + "/../data/BTC"))
+        self.add_annotator(TruecaseAnnotator("BTC_truecase", os.path.dirname(__file__) + "/../data/BTC", FORM_FREQUENCIES))
  #       self.add_annotator(ModelAnnotator("SEC", "data/SEC-filings"))
 
         # Avoid spans that start with an article
         editor = lambda span: span[1:] if span[0].lemma_ in {"the", "a", "an"} else span
- #       self.add_annotator(SpanEditorAnnotator("edited_BTC", "BTC", editor))
- #       self.add_annotator(SpanEditorAnnotator("edited_BTC_truecase", "BTC_truecase", editor))
+        self.add_annotator(SpanEditorAnnotator("edited_BTC", "BTC", editor))
+        self.add_annotator(SpanEditorAnnotator("edited_BTC_truecase", "BTC_truecase", editor))
         self.add_annotator(SpanEditorAnnotator("edited_core_web_md", "core_web_md", editor))
         self.add_annotator(SpanEditorAnnotator("edited_core_web_md_truecase", "core_web_md_truecase", editor))
 

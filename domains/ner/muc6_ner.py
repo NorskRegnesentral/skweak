@@ -478,6 +478,7 @@ class FullNameDetector():
         
         if span[0].text in self.first_names and span[-1].is_alpha and span[-1].is_title:
            return True
+        return False
        
        
 def name_detector(span: Span) -> bool: 

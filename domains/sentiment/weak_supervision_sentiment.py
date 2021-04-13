@@ -3,11 +3,10 @@ import spacy
 from spacy.tokens import DocBin
 import pandas as pd
 
-sys.path.insert(0, "..")
 from norec_sentiment import FullSentimentAnnotator
 from skweak import utils
 from sklearn.metrics import f1_score
-from skweak.sentiment_models import MBertAnnotator
+from sentiment_models import MBertAnnotator
 
 from sklearn.svm import LinearSVC
 from sklearn.feature_extraction.text import TfidfVectorizer
