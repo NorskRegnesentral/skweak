@@ -653,7 +653,7 @@ def display_entities(doc: Doc, layer=None):
 
     entities = [{"start":start, "end":end, "label":label} for (start,end), label in entities.items()]
     doc2 = {"text":text, "title":None, "ents":entities}
-    return spacy.displacy.render(doc2, jupyter=False, style="ent", manual=True)
+    return spacy.displacy.render(doc2, jupyter=True, style="ent", manual=True)
 
 
 def display_labelling_functions(doc: Doc):

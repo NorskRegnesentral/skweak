@@ -15,7 +15,6 @@ import tempfile, os
 from sklearn.feature_selection import mutual_info_classif
 import warnings
 warnings.simplefilter(action='ignore', category=FutureWarning)
-from numba import njit, float32
 
 ####################################################################
 # Aggregation models
