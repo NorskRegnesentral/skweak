@@ -4,7 +4,7 @@ from __future__ import annotations
 from skweak.base import SpanAnnotator
 import spacy
 import itertools, json
-from spacy.tokens import Doc
+from spacy.tokens import Doc #type: ignore
 from typing import Tuple, Iterable
 
 ####################################################################

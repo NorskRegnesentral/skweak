@@ -3,10 +3,10 @@ import spacy
 from spacy.tokens import DocBin
 import pandas as pd
 
-from norec_sentiment import FullSentimentAnnotator
+from .norec_sentiment import FullSentimentAnnotator
 from skweak import utils
 from sklearn.metrics import f1_score
-from sentiment_models import MBertAnnotator
+from .sentiment_models import MBertAnnotator
 
 from sklearn.svm import LinearSVC
 from sklearn.feature_extraction.text import TfidfVectorizer
@@ -24,27 +24,27 @@ train_doc_bin = DocBin(store_user_data=True)
 dev_doc_bin = DocBin(store_user_data=True)
 test_doc_bin = DocBin(store_user_data=True)
 
-train = pd.read_csv("../data/sentiment/norec_sentence/train.txt", delimiter="\t", header=None)
-dev = pd.read_csv("../data/sentiment/norec_sentence/dev.txt", delimiter="\t", header=None)
-test = pd.read_csv("../data/sentiment/norec_sentence/test.txt", delimiter="\t", header=None)
+train = pd.read_csv("./data/sentiment/norec_sentence/train.txt", delimiter="\t", header=None) #type: ignore
+dev = pd.read_csv("./data/sentiment/norec_sentence/dev.txt", delimiter="\t", header=None) #type: ignore
+test = pd.read_csv("./data/sentiment/norec_sentence/test.txt", delimiter="\t", header=None) #type: ignore
 
 for sid, (label, sent) in train.iterrows():
     doc = nlp(sent)
     doc.user_data["gold"] = label
     train_doc_bin.add(doc)
-train_doc_bin.to_disk("../data/sentiment/norec_sentence/train.docbin")
+train_doc_bin.to_disk("./data/sentiment/norec_sentence/train.docbin")
 
 for sid, (label, sent) in dev.iterrows():
     doc = nlp(sent)
     doc.user_data["gold"] = label
     dev_doc_bin.add(doc)
-dev_doc_bin.to_disk("../data/sentiment/norec_sentence/dev.docbin")
+dev_doc_bin.to_disk("./data/sentiment/norec_sentence/dev.docbin")
 
 for sid, (label, sent) in test.iterrows():
     doc = nlp(sent)
     doc.user_data["gold"] = label
     test_doc_bin.add(doc)
-test_doc_bin.to_disk("../data/sentiment/norec_sentence/test.docbin")
+test_doc_bin.to_disk("./data/sentiment/norec_sentence/test.docbin")
 
 
 ##################################################################
@@ -54,28 +54,28 @@ test_doc_bin.to_disk("../data/sentiment/norec_sentence/test.docbin")
 ann = FullSentimentAnnotator()
 ann.add_all()
 
-ann.annotate_docbin("../data/sentiment/norec_sentence/train.docbin", "../data/sentiment/norec_sentence/train_pred.docbin")
+ann.annotate_docbin("./data/sentiment/norec_sentence/train.docbin", "./data/sentiment/norec_sentence/train_pred.docbin")
 
-ann.annotate_docbin("../data/sentiment/norec_sentence/dev.docbin", "../data/sentiment/norec_sentence/dev_pred.docbin")
+ann.annotate_docbin("./data/sentiment/norec_sentence/dev.docbin", "./data/sentiment/norec_sentence/dev_pred.docbin")
 
-ann.annotate_docbin("../data/sentiment/norec_sentence/test_pred.docbin", "../data/sentiment/norec_sentence/test_pred.docbin")
+ann.annotate_docbin("./data/sentiment/norec_sentence/test_pred.docbin", "./data/sentiment/norec_sentence/test_pred.docbin")
 
-unified_model = skweak.aggregation.HMM("hmm", [0, 1, 2], prefixes=False)
-unified_model.fit("../data/sentiment/norec_sentence/train_pred.docbin")
-unified_model.annotate_docbin("../data/sentiment/norec_sentence/train_pred.docbin", "../data/sentiment/norec_sentence/train_pred.docbin")
+unified_model = skweak.aggregation.HMM("hmm", [0, 1, 2], sequence_labelling=False) #type: ignore
+unified_model.fit("./data/sentiment/norec_sentence/train_pred.docbin")
+unified_model.annotate_docbin("./data/sentiment/norec_sentence/train_pred.docbin", "./data/sentiment/norec_sentence/train_pred.docbin")
 
-#unified_model = skweak.aggregation.HMM("hmm", [0, 1, 2], prefixes=False)
-#unified_model.fit("../data/sentiment/norec_sentence/dev_pred.docbin")
-unified_model.annotate_docbin("../data/sentiment/norec_sentence/dev_pred.docbin", "../data/sentiment/norec_sentence/dev_pred.docbin")
+#unified_model = skweak.aggregation.HMM("hmm", [0, 1, 2], sequence_labelling=False)
+#unified_model.fit("./data/sentiment/norec_sentence/dev_pred.docbin")
+unified_model.annotate_docbin("./data/sentiment/norec_sentence/dev_pred.docbin", "./data/sentiment/norec_sentence/dev_pred.docbin")
 
-#unified_model = skweak.aggregation.HMM("hmm", [0, 1, 2], prefixes=False)
-#unified_model.fit("../data/sentiment/norec_sentence/test_pred.docbin")
-unified_model.annotate_docbin("../data/sentiment/norec_sentence/test_pred.docbin", "../data/sentiment/norec_sentence/test_pred.docbin")
+#unified_model = skweak.aggregation.HMM("hmm", [0, 1, 2], sequence_labelling=False)
+#unified_model.fit("./data/sentiment/norec_sentence/test_pred.docbin")
+unified_model.annotate_docbin("./data/sentiment/norec_sentence/test_pred.docbin", "./data/sentiment/norec_sentence/test_pred.docbin")
 
-mv = skweak.aggregation.MajorityVoter("mv", [0, 1, 2], prefixes=False)
-mv.annotate_docbin("../data/sentiment/norec_sentence/test_pred.docbin", "../data/sentiment/norec_sentence/test_pred.docbin")
+mv = skweak.aggregation.MajorityVoter("mv", [0, 1, 2], sequence_labelling=False) #type: ignore
+mv.annotate_docbin("./data/sentiment/norec_sentence/test_pred.docbin", "./data/sentiment/norec_sentence/test_pred.docbin")
 
-pred_docs = list(utils.docbin_reader("../data/sentiment/norec_sentence/test_pred.docbin"))
+pred_docs = list(utils.docbin_reader("./data/sentiment/norec_sentence/test_pred.docbin"))
 
 
 ##################################################################
@@ -83,9 +83,9 @@ pred_docs = list(utils.docbin_reader("../data/sentiment/norec_sentence/test_pred
 ##################################################################
 
 
-train_docs = list(utils.docbin_reader("../data/sentiment/norec_sentence/train.docbin"))
+train_docs = list(utils.docbin_reader("./data/sentiment/norec_sentence/train.docbin"))
 
-pred_docs = list(utils.docbin_reader("../data/sentiment/norec_sentence/test_pred.docbin"))
+pred_docs = list(utils.docbin_reader("./data/sentiment/norec_sentence/test_pred.docbin"))
 
 vectorizer = TfidfVectorizer(ngram_range=(1, 3))
 model = LinearSVC()

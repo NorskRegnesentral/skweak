@@ -2,13 +2,13 @@ from typing import Iterable, Tuple
 import re, json, os
 import snips_nlu_parsers
 from skweak.base import CombinedAnnotator, SpanAnnotator
-from skweak.spacy_model import ModelAnnotator, TruecaseAnnotator
+from skweak.spacy import ModelAnnotator, TruecaseAnnotator
 from skweak.heuristics import FunctionAnnotator, TokenConstraintAnnotator, SpanConstraintAnnotator, SpanEditorAnnotator
 from skweak.gazetteers import GazetteerAnnotator, extract_json_data
 from skweak.doclevel import DocumentHistoryAnnotator, DocumentMajorityAnnotator
 from skweak.aggregation import MajorityVoter
 from skweak import utils
-from spacy.tokens import Doc, Span
+from spacy.tokens import Doc, Span #type: ignore
 
 # Data files for gazetteers
 WIKIDATA = os.path.dirname(__file__) + "/../data/wikidata_tokenised.json"
@@ -267,8 +267,6 @@ class NERAnnotator(CombinedAnnotator):
     def add_models(self):
         """Adds Spacy NER models to the annotator"""
         
-#        self.add_annotator(ModelAnnotator("core_web_md", "en_core_web_md"))
-#        self.add_annotator(TruecaseAnnotator("core_web_md_truecase", "en_core_web_md", FORM_FREQUENCIES))
         self.add_annotator(ModelAnnotator("conll2003", os.path.dirname(__file__) + "/../data/conll2003"))
         self.add_annotator(TruecaseAnnotator("conll2003_truecase", os.path.dirname(__file__) + "/../data/conll2003", FORM_FREQUENCIES))
         self.add_annotator(ModelAnnotator("BTC", os.path.dirname(__file__) + "/../data/BTC"))
@@ -280,8 +278,7 @@ class NERAnnotator(CombinedAnnotator):
         self.add_annotator(SpanEditorAnnotator("edited_BTC_truecase", "BTC_truecase", editor))
         self.add_annotator(SpanEditorAnnotator("edited_conll2003", "conll2003", editor))
         self.add_annotator(SpanEditorAnnotator("edited_conll2003_truecase", "conll2003_truecase", editor))
-#        self.add_annotator(SpanEditorAnnotator("edited_core_web_md", "core_web_md", editor))
-#        self.add_annotator(SpanEditorAnnotator("edited_core_web_md_truecase", "core_web_md_truecase", editor))
+
 
         return self    
         
@@ -289,7 +286,7 @@ class NERAnnotator(CombinedAnnotator):
         """Adds gazetteer supervision models (company names and wikidata)."""
                             
         # Annotation of company names based on a large list of companies
-        company_tries = extract_json_data(COMPANY_NAMES) if full_load else {}
+        # company_tries = extract_json_data(COMPANY_NAMES) if full_load else {}
         
          # Annotation of company, person and location names based on wikidata
         wiki_tries = extract_json_data(WIKIDATA) if full_load else {}
@@ -307,7 +304,7 @@ class NERAnnotator(CombinedAnnotator):
         products_tries = extract_json_data(PRODUCTS)
         
         exclusives = ["date_detector", "time_detector", "money_detector", "number_detector"]
-        for name, tries in {"companies":company_tries, "wiki":wiki_tries, "wiki_small":wiki_small_tries,
+        for name, tries in {"wiki":wiki_tries, "wiki_small":wiki_small_tries, #"companies":company_tries
                             "geo":geo_tries, "crunchbase":crunchbase_tries, "products":products_tries}.items():
             
             # For each knowledge base, we create two gazetters (one with case-sensitive 

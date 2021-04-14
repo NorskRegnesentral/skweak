@@ -13,7 +13,6 @@ def evaluate(docs, all_labels, target_sources):
     for source in target_sources:
         results = get_results(docs, all_labels, source)
         labels = set(results["label_weights"].keys())
-        # Put the results into a pandas dataframe
         for name in sorted(labels) + ["micro", "weighted", "macro"]:
             if name in results:
                 record = results[name]
@@ -144,57 +143,18 @@ def compute_raw_numbers(docs, all_labels, target_source, conf_threshold=0.5):
             tok_fn[label] = tok_fn.get(label,0) + len(true_tok_labels - pred_tok_labels)
             tok_support[label] = tok_support.get(label, 0) + len(true_tok_labels)
 
-                
-        gold_probs, pred_probs = get_probs(doc, all_labels, target_source)
-        tok_logloss += 0 #sklearn.metrics.log_loss(gold_probs, pred_probs, normalize=False)
+        gold_probs, pred_probs = _get_probs(doc, all_labels, target_source)
+        tok_logloss += sklearn.metrics.log_loss(gold_probs, pred_probs, normalize=False)
         tok_tp_tn += sum(gold_probs.argmax(axis=1) == pred_probs.argmax(axis=1))
         tok_nb += len(doc)
 
     return (tok_tp, tok_fp, tok_fn, tok_logloss, tok_nb, tok_tp_tn, ent_tp, 
             ent_fp, ent_fn, ent_support, tok_support)
 
-def get_confusions(docs, all_labels, target_source):
 
-    true_arr = []
-    pred_arr = []
-    for doc in docs:
-        for tok in doc:
-            true_arr.append("O" if tok.ent_iob_=="O" else tok.ent_type_)
-            if target_source in doc.user_data["agg_probs"] and tok.i in doc.user_data["agg_probs"][target_source]:
-                vals2 = {}
-                for val, prob in doc.user_data["agg_probs"][target_source][tok.i].items():
-                    vals2[val.split("-")[1]] = vals2.get(val.split("-")[1], 0) + prob
-                if sum(vals2.values()) < 0.99:
-                    vals2["O"] = 1 - sum(vals2.values())
-                pred_arr.append(vals2)
-            elif target_source in doc.user_data["spans"]:
-                for (start, end), val in doc.user_data["spans"][target_source].items():
-                    if tok.i >=start and tok.i < end:
-                        pred_arr.append({val:1.0})
-                        break
-                else:
-                    pred_arr.append({"O":1.0})
-            else:
-                pred_arr.append({"O":1.0})
-
-    values = {true_val:{pred_val: 0 for pred_val in ["O"] + all_labels} for true_val in ["O"] + all_labels}
-    for i in range(len(true_arr)):
-        for val, prob in pred_arr[i].items():
-            values[true_arr[i]][val] += prob
-    df = pandas.DataFrame.from_dict(values, orient="index")
-
-    print(len([x for x in true_arr if x=="O"]))
-    print(len(true_arr))
-    return df.round(1)
-
-
-
-
-
-
-
-def get_probs(doc, all_labels, target_source):
-
+def _get_probs(doc, all_labels, target_source):
+    """Retrieves the gold and predicted probabilities (as matrices)"""
+    
     out_label_indices = {"O":0}
     for label in all_labels:
         for prefix in "BI":
@@ -220,7 +180,8 @@ def get_probs(doc, all_labels, target_source):
 
 
 
-def show_results(docs, all_labels, target_source, conf_threshold=0.5):
+def show_errors(docs, all_labels, target_source, conf_threshold=0.5):
+    """Utilities to display the errors/omissions of a given source"""
     
     for i, doc in enumerate(docs):
         

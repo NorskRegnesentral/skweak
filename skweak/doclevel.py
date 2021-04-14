@@ -4,7 +4,7 @@ from skweak.gazetteers import GazetteerAnnotator
 from skweak import utils
 from typing import Dict, List, Tuple
 from . import gazetteers, base
-from spacy.tokens import Doc
+from spacy.tokens import Doc #type: ignore
 from collections import defaultdict
 
 class DocumentHistoryAnnotator(base.BaseAnnotator):

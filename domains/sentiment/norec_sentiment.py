@@ -1,8 +1,8 @@
 from skweak.base import BaseAnnotator, CombinedAnnotator
-from skweak.sentiment_lexicons import LexiconAnnotator, NRC_SentAnnotator, VADAnnotator, SocalAnnotator, BUTAnnotator
-from skweak.sentiment_models import DocBOWAnnotator, MultilingualAnnotator, MBertAnnotator
+from .sentiment_lexicons import LexiconAnnotator, NRC_SentAnnotator, VADAnnotator, SocalAnnotator, BUTAnnotator
+from .sentiment_models import DocBOWAnnotator, MultilingualAnnotator, MBertAnnotator
 import os
-from spacy.tokens import Doc
+from spacy.tokens import Doc #type: ignore
 from typing import Sequence, Tuple, Optional, Iterable
 from collections import defaultdict
 

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json, re, functools
 from typing import List, Set, Dict, Tuple, Optional, TypeVar, Iterable
-from spacy.tokens import Doc, Token, Span, DocBin
+from spacy.tokens import Doc, Token, Span, DocBin  #type: ignore
 import numpy as np
 
 T = TypeVar('T')
@@ -198,13 +198,16 @@ def docbin_writer(docs: Iterable[Doc], docbin_output_path: str):
                    
 def json_writer(docs, json_file_path: str, source: str=None):
     """Converts a collection of Spacy Doc objects to a JSON format,
-    such that it can be used to train the Spacy NER model.
+    such that it can be used to train the Spacy NER model. (for Spacy v2)
 
     Source must be an aggregated source (defined in user_data["agg_spans"]), which
     will correspond to the target values in the JSON file.
     """
 
-    import spacy.gold
+    if int(spacy.__version__[0]) > 2:
+        raise RuntimeError("Only supported for Spacy v2")
+    
+    import spacy.gold #type: ignore
 
     #We start opening up the JSON file
     print("Writing JSON file to", json_file_path)
@@ -439,7 +442,7 @@ def get_subsequences(sequence: List[T]) -> List[List[T]]:
 
 
 def spans_to_array(doc: Doc, labels: List[str],
-                    sources: Set[str]=None) -> np.ndarray:
+                    sources: List[str]=None) -> np.ndarray:
     """Convert the annotations of a spacy document into a 2D array.
     Each row corresponds to a token, and each column to a labelling
     source. In other words, the value at (i,j) represents the prediction
@@ -609,19 +612,18 @@ def is_valid_transition(prefix_label1, prefix_label2, encoding="BIO"):
                 or (prefix_label2.startswith("I-") and "B" not in encoding))
 
 
-
 ############################################
 # Visualisation
 ############################################
 
-
-def display_entities(doc: Doc, layer=None):
+def display_entities(doc: Doc, layer=None, add_tooltip=False):
     """Display the entities annotated in a spacy document, based on the
     provided annotation layer(s). If layer is None, the method displays
     the entities from Spacy.
     """
 
     import spacy.displacy
+    import IPython.core.display
     if layer is None:
         spans = {(ent.start,ent.end):ent.label_ for ent in doc.ents}
     elif type(layer) is list:
@@ -635,8 +637,6 @@ def display_entities(doc: Doc, layer=None):
             spans = get_spans(doc, [layer])
     else:
         raise RuntimeError("Layer type not accepted")
-
-    text = doc.text
 
     entities = {}
     for (start,end), label in sorted(spans.items()):
@@ -652,46 +652,83 @@ def display_entities(doc: Doc, layer=None):
             entities[(start_char,end_char)] = entities[(start_char,end_char)]+ "+" + label
 
     entities = [{"start":start, "end":end, "label":label} for (start,end), label in entities.items()]
-    doc2 = {"text":text, "title":None, "ents":entities}
-    return spacy.displacy.render(doc2, jupyter=True, style="ent", manual=True)
+    doc2 = {"text":doc.text, "title":None, "ents":entities}
+    html = spacy.displacy.render(doc2, jupyter=False, style="ent", manual=True)
+    
+    if add_tooltip:
+        html = _enrich_with_tooltip(doc, html) #type: ignore
+    
+    ipython_html = IPython.core.display.HTML('<span class="tex2jax_ignore">{}</span>'.format(html))
+    return IPython.core.display.display(ipython_html)
 
 
-def display_labelling_functions(doc: Doc):
-    from .display import render
-    #
-    # Get all tokens and their (bidx, eidx)
-    offsets = []
-    for token in doc:
-        start_char = token.idx
-        end_char = start_char + len(token)
-        offsets.append((start_char, end_char))
-    #
-    # get all token annotations
-    token_anns = {}
-    for annotator in doc.user_data["spans"].keys():
-        for (bidx, eidx), label in doc.user_data["spans"][annotator].items():
-            for token_idx in range(bidx, eidx):
-                (start_char, end_char) = offsets[token_idx]
-                if (start_char, end_char) not in token_anns:
-                    token_anns[(start_char, end_char)] = {annotator: label}
-                else:
-                    token_anns[(start_char, end_char)][annotator] = label
-    #
-    # create a list of spans (bidx, eidx), labels="ANN1: label<br>"
-    offset_labels = []
-    for offset in offsets:
-        labels = ""
-        if offset in token_anns:
-            for i, (annotator, label) in enumerate(token_anns[offset].items()):
-                labels += "{0}: {1}".format(annotator, label)
-                if i < len(token_anns[offset].items()) - 1:
-                    labels += "<br>"
-        offset_labels.append(labels)
-    #
-    text = doc.text
-    #
-    entities = [{"start": start, "end": end, "label": label} for (start, end), label in zip(offsets, offset_labels)]
-    doc2 = {"text": text, "title": None, "ents": entities}
-    render(doc2, jupyter=True, style="ent", manual=True)
-    #return offsets, offset_labels, entities
+def _enrich_with_tooltip(doc: Doc, html: str):
+    """Enrich the HTML produced by spacy with tooltips displaying the predictions
+    of each labelling function"""
+    
+    import spacy.util
+    if "spans" not in doc.user_data:
+        return html
+    
+    # Retrieves annotations for each token
+    annotations_by_tok = {}
+    for annotator in sorted(doc.user_data["spans"].keys()):
+        for (start, end), label in doc.user_data["spans"][annotator].items():
+            for i in range(start, end):
+                annotations_by_tok[i] = annotations_by_tok.get(i, []) + [(annotator, label)]
+    
+    # We determine which characters are part of the HTML markup and not the text 
+    all_chars_to_skip = set()
+    for fragment in re.finditer("<span.+?</span>", html):
+        all_chars_to_skip.update(range(fragment.start(0), fragment.end(0)))
+    for fragment in re.finditer("</?div.*?>", html):
+        all_chars_to_skip.update(range(fragment.start(0), fragment.end(0)))
+    for fragment in re.finditer("</?mark.*?>", html):
+        all_chars_to_skip.update(range(fragment.start(0), fragment.end(0)))
+    
+    # We loop on each token
+    curr_pos = 0
+    new_fragments = []
+    for tok in doc:
+        
+        # We search for the token position in the HTML
+        toktext = spacy.util.escape_html(tok.text)
+        start_pos = html.index(toktext, curr_pos)
+        if start_pos == -1:
+            raise RuntimeError("could not find", tok)
+        while any((i in all_chars_to_skip for i in range(start_pos, start_pos + len(toktext)))):
+            start_pos = html.index(toktext, start_pos+1)
+            if start_pos == -1:
+                raise RuntimeError("could not find", tok)
+        
+        # We add the preceding fragment
+        new_fragments.append(html[curr_pos:start_pos])
+        
+        # If the token has annotations, we create a tooltip
+        if tok.i in annotations_by_tok:
+            lines = ["%s:\t%s&nbsp;&nbsp"%(ann,label) for ann, label in annotations_by_tok[tok.i]]
+            max_width = 7*max([len(l) for l in lines])
+            new_fragment = ("<label class='tooltip'>%s"%toktext + 
+                            "<span class='tooltip-text' style='width:%ipx'>%s</span></label>"%(max_width, "<br>".join(lines)))
+        else:
+            new_fragment = toktext
+        new_fragments.append(new_fragment)
+        curr_pos = start_pos + len(toktext)
+       
+    new_fragments.append(html[curr_pos:])
+    
+    new_html = """<style>
+.tooltip {  position: relative;  border-bottom: 1px dotted black; }
+.tooltip .tooltip-text {visibility: hidden;  background-color: black;  color: white;
+                        line-height: 1.2;  text-align: right;  border-radius: 6px;
+                        padding: 5px 0; position: absolute; z-index: 1; margin-left:1em;
+                        opacity: 0; transition: opacity 1s;}
+.tooltip .tooltip-text::after {position: absolute; top: 1.5em; right: 100%; margin-top: -5px;
+                               border-width: 5px; border-style: solid; 
+                               border-color: transparent black transparent transparent;}
+.tooltip:hover .tooltip-text {visibility: visible; opacity: 1;}
+</style>
+""" + "".join(new_fragments)
 
+    return new_html
+    

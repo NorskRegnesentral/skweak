@@ -1,8 +1,13 @@
 
-from .conlll2003_ner import (WIKIDATA, WIKIDATA_SMALL, CRUNCHBASE, PRODUCTS, GEONAMES, 
+from .conll2003_ner import (WIKIDATA, WIKIDATA_SMALL, CRUNCHBASE, PRODUCTS, GEONAMES, 
                              LEGAL_SUFFIXES, COUNTRIES, GENERIC_TOKENS, COMPANY_NAMES)
 import pickle, re, json
 import spacy
+
+"""Contains scripts used to compile the lists of entities from Wikipedia, Geonames,
+Crunchbase and DBPedia. Those scripts can be ignored in most cases, as it is easier
+to directly rely on the already compiled json files. """
+
 
 ############################################
 # Compilation of data sources

@@ -121,9 +121,9 @@ def train(model, save_dir="../data/sentiment/models/norbert"):
             train_loss += loss.data
             num_batches += 1
             loss.backward()
-            optimizer.step()
-            scheduler.step()
-            optimizer.zero_grad()
+            optimizer.step() #type: ignore
+            scheduler.step() #type: ignore
+            optimizer.zero_grad() #type: ignore
         print("Epoch {0}: Loss {1:.3f}".format(epoch_num + 1, train_loss / num_batches))
         print("Train F1: {0:.3f}".format(f1_score(train_gold, train_preds, average="macro")))
 
@@ -147,7 +147,7 @@ def train(model, save_dir="../data/sentiment/models/norbert"):
         dev_f1 = f1_score(dev_gold, dev_preds, average="macro")
         print("Dev F1: {0:.3f}".format(dev_f1))
 
-        if dev_f1 > best_dev_f1:
+        if dev_f1 > best_dev_f1: #type: ignore
             best_dev_f1 = dev_f1
             print("Current best dev: {0:.3f}".format(best_dev_f1))
             print("Saving model")

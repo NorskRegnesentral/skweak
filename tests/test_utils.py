@@ -54,7 +54,7 @@ def test_get_spans(nlp_small):
                               "source2":{(0,1):"LABEL3", (2,6):"LABEL2"},
                               "source4":{(0,2):"LABEL2"}}
     doc.user_data["agg_spans"] = {"source3":{(7,9):"LABEL2", (1,4):"LABEL1"}}
-    doc.user_data["agg_token_labels"] = {"source3":{7:{"B-LABEL2":0.7}, 8:{"I-LABEL2":0.6}, 
+    doc.user_data["agg_probs"] = {"source3":{7:{"B-LABEL2":0.7}, 8:{"I-LABEL2":0.6}, 
                                                     1:{"B-LABEL1":0.9}, 2:{"I-LABEL1":0.55}, 3:{"I-LABEL1":0.85}}}
                                   
     assert set(utils.get_spans(doc, ["source1", "source2"]).keys()) == {(0,2), (2,6)}
@@ -81,7 +81,7 @@ def test_docbins(nlp_small, temp_file="data/temporary_test.docbin"):
     doc2 = nlp_small("He is working on various NLP topics.")
     doc.user_data["spans"] = {"test":{(0,2):"PERSON"}}
     utils.docbin_writer([doc, doc2], temp_file)
-    doc3, doc4 = list(utils.docbin_reader(temp_file, "en"))
+    doc3, doc4 = list(utils.docbin_reader(temp_file, "en_core_web_sm"))
     assert doc.text == doc3.text 
     assert doc2.text == doc4.text 
     assert [(e.text, e.label_) for e in doc.ents] == [(e.text, e.label_) for e in doc3.ents]
@@ -91,6 +91,10 @@ def test_docbins(nlp_small, temp_file="data/temporary_test.docbin"):
     
 
 def test_json(nlp_small, temp_file="data/temporary_test.json"):
+    import spacy
+    if int(spacy.__version__[0]) > 2:
+        return
+    
     doc = nlp_small("Pierre Lison is working at the Norwegian Computing Center.")
     doc2 = nlp_small("He is working on various NLP topics.")
     doc.user_data["spans"] = {"test":{(6, 9):"RESEARCH_ORG"}}

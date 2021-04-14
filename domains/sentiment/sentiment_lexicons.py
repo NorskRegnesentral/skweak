@@ -1,6 +1,6 @@
 from skweak.base import SpanAnnotator
 import os
-from spacy.tokens import Doc
+from spacy.tokens import Doc #type: ignore
 from typing import Sequence, Tuple, Optional, Iterable
 from collections import defaultdict
 
@@ -57,7 +57,7 @@ class LexiconAnnotator(SpanAnnotator):
             label = 0
         else:
             label = 1
-        yield 0, len(doc), label
+        yield 0, len(doc), label #type: ignore
 
     def pipe(self, docs: Iterable[Doc]) -> Iterable[Doc]:
         for doc in docs:
@@ -101,7 +101,7 @@ class VADAnnotator(SpanAnnotator):
             label = 0
         else:
             label = 1
-        yield 0, len(doc), label
+        yield 0, len(doc), label #type: ignore
 
     def pipe(self, docs: Iterable[Doc]) -> Iterable[Doc]:
         for doc in docs:
@@ -123,7 +123,7 @@ class SocalAnnotator(SpanAnnotator):
             if i > 0: # skip the header
                 try:
                     no_term, score = line.strip().split("\t")
-                    self.lexicon[no_term] = float(score)
+                    self.lexicon[no_term] = float(score) #type: ignore
                 except ValueError:
                     print(str(i) + ": " + line)
 
@@ -148,7 +148,7 @@ class SocalAnnotator(SpanAnnotator):
             label = 0
         else:
             label = 1
-        yield 0, len(doc), label
+        yield 0, len(doc), label #type: ignore
 
     def pipe(self, docs: Iterable[Doc]) -> Iterable[Doc]:
         for doc in docs:
@@ -202,7 +202,7 @@ class NRC_SentAnnotator(SpanAnnotator):
             label = 0
         else:
             label = 1
-        yield 0, len(doc), label
+        yield 0, len(doc), label #type: ignore
 
     def pipe(self, docs: Iterable[Doc]) -> Iterable[Doc]:
         for doc in docs:
@@ -262,7 +262,7 @@ class BUTAnnotator(SpanAnnotator):
             label = 0
         else:
             label = 1
-        yield 0, len(doc), label
+        yield 0, len(doc), label #type: ignore
 
     def pipe(self, docs: Iterable[Doc]) -> Iterable[Doc]:
         for doc in docs:

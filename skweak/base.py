@@ -4,7 +4,7 @@ from abc import abstractmethod
 import itertools
 from typing import Sequence, Tuple, Optional, Iterable
 from . import utils
-from spacy.tokens import Doc
+from spacy.tokens import Doc #type: ignore
 
 
 ############################################

@@ -1,18 +1,16 @@
 from __future__ import annotations
 
 from abc import abstractmethod
-from typing import Iterable, List, Set
+from typing import Iterable, List, Set, Dict, Tuple
 import numpy as np
 from .base import BaseAnnotator
-from spacy.tokens import Doc
+from spacy.tokens import Doc #type: ignore
 from . import utils
 import pickle
-import itertools
 import hmmlearn
 import hmmlearn.base
 import pandas
 import tempfile, os
-from sklearn.feature_selection import mutual_info_classif
 import warnings
 warnings.simplefilter(action='ignore', category=FutureWarning)
 
@@ -24,28 +22,28 @@ warnings.simplefilter(action='ignore', category=FutureWarning)
 class BaseAggregator(BaseAnnotator):
     """Base aggregator to combine all labelling sources into a single annotation layer"""
 
-    def __init__(self, name: str, labels: List[str], prefixes: str = "BIO"):
+    def __init__(self, name: str, labels: List[str], sequence_labelling: bool = True,
+                 prefixes: str = "BIO"):
         """Creates a new token-level aggregator with the following arguments:
         - name is the aggregator name
-        - labels is a list of labels such as PERSON, ORG etc. 
-        - prefixes must be either 'IO', 'BIO', 'BILUO' or False. If prefixes is False,
-          the aggregator does not perform any token-level segmentation, but instead 
-          groups together spans with the same (start,end) boundary, and aggregates 
-          their labels. In other words, if prefixes=False, the aggregation is done
-          at the level of unique spans instead of tokens. """
+        - labels is a list of output labels such as PERSON, ORG etc. 
+        - If sequence_labelling is set to True, the labels are aggregated at the token-level
+         (using IO/BIO/BILUO prefixes). Otherwise, skweak simply groups together spans with the 
+          same (start,end) boundary, and aggregates their labels.
+        - prefixes must be either 'IO', 'BIO', 'BILUO'. Ignored if sequence_labelling is False
+        """
 
         super(BaseAggregator, self).__init__(name)
 
-        # We adapt the actual labels depending on the chosen prefixes
-        if prefixes not in {"IO", "BIO", "BILUO", "BILOU", False}:
-            raise RuntimeError("Tagging scheme must be 'IO', 'BIO', 'BILUO' or ''")
-        if prefixes is False:
-            self.out_labels = labels
-        else:
+        if sequence_labelling:
+            if prefixes not in {"IO", "BIO", "BILUO", "BILOU"}:
+                raise RuntimeError("Tagging scheme must be 'IO', 'BIO', 'BILUO' or ''")
             self.out_labels = ["O"]
             for label in labels:
                 for prefix in prefixes.replace("O", ""):
                     self.out_labels.append("%s-%s" % (prefix, label))
+        else:
+            self.out_labels = labels
 
         # We may specify labelling sources to avoid
         self.sources_to_avoid = []
@@ -168,19 +166,19 @@ class BaseAggregator(BaseAnnotator):
 class MajorityVoter(BaseAggregator):
     """Simple aggregator based on majority voting"""
 
-    def __init__(self, name: str, labels: List[str], prefixes: str = "BIO"):
+    def __init__(self, name: str, labels: List[str], sequence_labelling: bool = True, 
+                 prefixes: str = "BIO"):
         """Creates a majority voter to aggregate spans. Arguments:
         - name is the aggregator name
-        - labels is a list of labels such as PERSON, ORG etc. 
-        - prefixes must be either 'IO', 'BIO', 'BILUO' or False. If prefixes is False,
-          the aggregator does not perform any token-level segmentation, but instead 
-          groups together spans with the same (start,end) boundary, and aggregates 
-          their labels. In other words, if prefixes=False, the aggregation is done
-          at the level of unique spans instead of tokens.
+        - labels is a list of output labels such as PERSON, ORG etc. 
+        - If sequence_labelling is set to True, the labels are aggregated at the token-level
+         (using IO/BIO/BILUO prefixes). Otherwise, skweak simply groups together spans with the 
+          same (start,end) boundary, and aggregates their labels.
+        - prefixes must be either 'IO', 'BIO', 'BILUO'. Ignored if sequence_labelling is False
         """
 
-        super(MajorityVoter, self).__init__(name, labels, prefixes)
-        self.weights = None
+        super(MajorityVoter, self).__init__(name, labels, sequence_labelling, prefixes)
+        self.weights = {}
 
     def _aggregate(self, observations: pandas.DataFrame, coefficient=0.1) -> pandas.DataFrame:
         """Takes as input a 2D dataframe of shape (nb_entries, nb_sources) 
@@ -195,7 +193,7 @@ class MajorityVoter(BaseAggregator):
 
         # We count the votes for each label on all sources
         def count_function(x):
-            if self.weights is None:
+            if not self.weights:
                 return np.bincount(x[x >= 0], minlength=len(self.observed_labels))
             else:
                 weights = [self.weights[source][x[i]] for i, source in enumerate(observations.columns)]
@@ -233,20 +231,20 @@ class HMM(hmmlearn.base._BaseHMM, BaseAggregator):
     without access to the actual labels, using the Baum-Welch algorithm 
     (a special case of Expectation-Maximisation)"""
 
-    def __init__(self, name: str, out_labels: List[str], prefixes: str = "BIO",  redundancy_weight=0.1):
+    def __init__(self, name: str, out_labels: List[str], sequence_labelling: bool = True, 
+                 prefixes: str = "BIO",  redundancy_weight=0.1):
         """Initialises the HMM model (which must be fitted before use). 
         Arguments:
         - name is the aggregator name
-        - labels is a list of labels such as PERSON, ORG etc. 
-        - prefixes must be either 'IO', 'BIO', 'BILUO' or False. If prefixes is False,
-          the aggregator does not perform any token-level segmentation, but instead 
-          groups together spans with the same (start,end) boundary, and aggregates 
-          their labels. In other words, if prefixes=False, the aggregation is done
-          at the level of unique spans instead of tokens.
+        - labels is a list of output labels such as PERSON, ORG etc. 
+        - If sequence_labelling is set to True, the labels are aggregated at the token-level
+         (using IO/BIO/BILUO prefixes). Otherwise, skweak simply groups together spans with the 
+          same (start,end) boundary, and aggregates their labels.
+        - prefixes must be either 'IO', 'BIO', 'BILUO'. Ignored if sequence_labelling is False
         - redundancy weight is the strength of the correlation-based weighting of each 
           labelling function. A value of 0.0 disables the weighting"""
 
-        BaseAggregator.__init__(self, name, out_labels, prefixes)
+        BaseAggregator.__init__(self, name, out_labels, sequence_labelling, prefixes)
         self.redundancy_weight = redundancy_weight
         
     def __call__(self, doc: Doc) -> Doc:
@@ -286,7 +284,7 @@ class HMM(hmmlearn.base._BaseHMM, BaseAggregator):
             raise RuntimeError("Model is not yet trained")
 
         # Convert the observations to one-hot representations
-        X = {src: self._to_one_hot(observations[src]) for src in observations.columns}
+        X = {src: self._to_one_hot(observations[src].values) for src in observations.columns}
 
         # Compute the log likelihoods for each states
         framelogprob = self._compute_log_likelihood(X)
@@ -297,7 +295,7 @@ class HMM(hmmlearn.base._BaseHMM, BaseAggregator):
 
         # Transform into probabilities
         posteriors = np.exp(forward_lattice)
-        posteriors = posteriors / posteriors.sum(axis=1)[:, np.newaxis]
+        posteriors = posteriors / posteriors.sum(axis=1)[:, np.newaxis] #type: ignore
 
         return pandas.DataFrame(posteriors, columns=self.out_labels, index=observations.index)
 
@@ -334,12 +332,12 @@ class HMM(hmmlearn.base._BaseHMM, BaseAggregator):
                 obs = self.get_observation_df(doc)
                 
                 # Convert the observations to one-hot representations
-                X = {src: self._to_one_hot(obs[src]) for src in obs.columns}
+                X = {src: self._to_one_hot(obs[src].values) for src in obs.columns}
                 
                 # Compute its current log-likelihood
                 framelogprob = self._compute_log_likelihood(X)
                 # Make sure there is no token with no possible states
-                if np.isnan(framelogprob).any() or framelogprob.max(axis=1).min() < -100000:
+                if np.isnan(framelogprob).any() or framelogprob.max(axis=1).min() < -100000: #type: ignore
                     pos = framelogprob.max(axis=1).argmin()
                     print("problem found for token", doc[pos], "in", self.name)
                     return
@@ -367,15 +365,15 @@ class HMM(hmmlearn.base._BaseHMM, BaseAggregator):
                 break
         return self
            
-    def _compute_log_likelihood(self, X):
+    def _compute_log_likelihood(self, X: Dict[str,np.ndarray]) -> np.ndarray:
         """Computes the log likelihood for the observed sequence"""
 
-        logsum = None
+        logsum = np.float32()
         for source in X:
 
             # Include the weights to the probabilities
             if self.redundancy_weight:
-                probs = np.power(self.emit_probs[source], self.weights[source])
+                probs = self.emit_probs[source] ** self.weights[source]
             else:
                 probs = self.emit_probs[source]
             
@@ -385,17 +383,17 @@ class HMM(hmmlearn.base._BaseHMM, BaseAggregator):
             # Impossible states have a logprob of -inf
             log_probs = np.ma.log(probs).filled(-np.inf)
             
-            logsum = log_probs if logsum is None else (logsum + log_probs)
+            logsum += log_probs
 
         # We also add a constraint that the probability of a state is zero
         # if no labelling functions observes it
-        X_all_obs = np.zeros(logsum.shape, dtype=bool)
+        X_all_obs = np.zeros(logsum.shape, dtype=bool) #type: ignore
         for source in self.emit_counts:
             if source in X:
                 X_all_obs += X[source][:, :len(self.out_labels)]
         logsum = np.where(X_all_obs, logsum, -np.inf)
 
-        return logsum
+        return logsum #type: ignore
 
     def _extract_sources(self, docs: Iterable[Doc], max_number=100):
         """Extract the names of all labelling sources mentioned in the documents
@@ -463,7 +461,7 @@ class HMM(hmmlearn.base._BaseHMM, BaseAggregator):
         majority voters"""
 
         # We rely on an ensemble majority voter to get the first counts
-        mv = MajorityVoter("", self.out_labels, prefixes=False)
+        mv = MajorityVoter("", self.out_labels, sequence_labelling=False)
         mv.underspecified_labels = self.underspecified_labels
         mv.sources_to_avoid = self.sources_to_avoid
         
@@ -488,7 +486,7 @@ class HMM(hmmlearn.base._BaseHMM, BaseAggregator):
                 self.trans_counts += np.outer(agg_array[i-1], agg_array[i])
 
             # Get indicator matrices for the observations
-            one_hots = {src: self._to_one_hot(obs[src]) for src in obs.columns}
+            one_hots = {src: self._to_one_hot(obs[src].values) for src in obs.columns}
 
             # Update the emission probabilities
             for source in one_hots:
@@ -500,7 +498,7 @@ class HMM(hmmlearn.base._BaseHMM, BaseAggregator):
                     self.corr_counts[(src, src2)] += np.dot(one_hots[src2].T, one_hots[src])
 
  
-    def _to_one_hot(self, vector):
+    def _to_one_hot(self, vector: np.ndarray) -> np.ndarray:
         """Given a vector of indices to observed labels, returns a 2D
         boolean matrix representing the presence/absence of a label. """
 
@@ -508,7 +506,7 @@ class HMM(hmmlearn.base._BaseHMM, BaseAggregator):
         matrix[np.arange(vector.size), vector] = True
         return matrix
 
-    def _accumulate_statistics(self, X, framelogprob, posteriors, fwdlattice, bwdlattice):
+    def _accumulate_statistics(self, X:Dict[str, np.ndarray], framelogprob: np.ndarray, posteriors: np.ndarray, fwdlattice, bwdlattice):
         """Acccumulate the counts based on the sufficient statistics"""
 
         # Update the start counts
@@ -518,7 +516,7 @@ class HMM(hmmlearn.base._BaseHMM, BaseAggregator):
         n_samples, n_components = framelogprob.shape
         if n_samples > 1:
             log_xi_sum = np.full((n_components, n_components), -np.inf)
-            hmmlearn._hmmc._compute_log_xi_sum(n_samples, n_components, fwdlattice,
+            hmmlearn._hmmc._compute_log_xi_sum(n_samples, n_components, fwdlattice, #type: ignore
                                                hmmlearn.base.log_mask_zero(self.transmat_),
                                                bwdlattice, framelogprob, log_xi_sum)
             self.trans_counts += np.exp(log_xi_sum)
@@ -545,7 +543,7 @@ class HMM(hmmlearn.base._BaseHMM, BaseAggregator):
         trans_norm = (self.trans_counts.sum(axis=1) + 1E-100)[:, np.newaxis]
         self.transmat_ = self.trans_counts / trans_norm
 
-        self.emit_probs = {}
+        self.emit_probs: Dict[str,np.ndarray] = {}
         for source in self.emit_counts:
             normalisation = (self.emit_counts[source] + 1E-100).sum(axis=-1)[:, np.newaxis]
             self.emit_probs[source] = self.emit_counts[source] / normalisation
@@ -559,7 +557,7 @@ class HMM(hmmlearn.base._BaseHMM, BaseAggregator):
         """Update the weights of each labelling function to account for correlated sources"""
                               
         # We reset the weights                                                                
-        self.weights = {source:[1.0]*len(self.observed_labels) for source in self.emit_counts}
+        self.weights = {source:np.full(len(self.observed_labels),1) for source in self.emit_counts}
         
         # We compute a weight for each (source, observed label) pair
         for source in self.emit_counts:

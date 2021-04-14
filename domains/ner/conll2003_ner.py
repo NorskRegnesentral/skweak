@@ -2,13 +2,13 @@ from typing import Iterable, Tuple
 import re, json, os
 import snips_nlu_parsers
 from skweak.base import CombinedAnnotator, SpanAnnotator
-from skweak.spacy_model import ModelAnnotator, TruecaseAnnotator
+from skweak.spacy import ModelAnnotator, TruecaseAnnotator
 from skweak.heuristics import FunctionAnnotator, TokenConstraintAnnotator, SpanConstraintAnnotator, SpanEditorAnnotator
 from skweak.gazetteers import GazetteerAnnotator, extract_json_data
 from skweak.doclevel import DocumentHistoryAnnotator, DocumentMajorityAnnotator
 from skweak.aggregation import MajorityVoter
 from skweak import utils
-from spacy.tokens import Doc, Span
+from spacy.tokens import Doc, Span #type: ignore
 
 # Data files for gazetteers
 WIKIDATA = os.path.dirname(__file__) + "/../data/wikidata_tokenised.json"

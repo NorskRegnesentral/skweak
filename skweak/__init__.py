@@ -1,1 +1,1 @@
-from . import base, doclevel, eval_utils, gazetteers, heuristics, aggregation, utils, spacy_model, display
+from . import base, doclevel, gazetteers, heuristics, aggregation, utils, spacy
