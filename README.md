@@ -1,6 +1,6 @@
 # skweak: Weak supervision for NLP
 
-Labelled data remains a scarce resource in many practical NLP scenarios. This is especially the case when working with resource-poor languages (or text domains), or when we wish to use task-specific labels without pre-existing datasets. The only available option is often to collect and annotate texts by hand, which is an expensive and time-consuming process. 
+Labelled data remains a scarce resource in many practical NLP scenarios. This is especially the case when working with resource-poor languages (or text domains), or when using task-specific labels without pre-existing datasets. The only available option is often to collect and annotate texts by hand, which is an expensive and time-consuming process. 
 
 `skweak` (pronounced `/ski:k/`) is a Python-based software toolkit that provides a concrete solution to this problem using _weak supervision_. `skweak` is built around a very simple idea: Instead of annotating texts by hand, we define a set of _labelling functions_ to automatically label our documents, and then _aggregate_ their results to obtain a labelled version of your corpus. 
 
@@ -33,7 +33,7 @@ TODO: make `skweak` into a full-blown package that can be installed through `pip
    <img alt="Overview of skweak" src="https://raw.githubusercontent.com/NorskRegnesentral/skweak/main/data/skweak_procedure.png"/>
 </p><br>
 
-The use of weak supervision with `skweak` goes through the following steps:
+Weak supervision with `skweak` goes through the following steps:
 - **Start**: First, you need raw (unlabelled) data from your text domain. `skweak` is build on top of [SpaCy](http://www.spacy.io), and operates with Spacy `Doc` objects, so you first need to convert your documents to `Doc` objects with `spacy`.
 - **Step 1**: Then, we need to define a range of labelling functions that will take those documents and annotate spans with labels. Those labelling functions can comes from heuristics, gazetteers, machine learning models, or even noisy annotations from crowd-workers. See the ![documentation](https://github.com/NorskRegnesentral/skweak/wiki) for more details. 
 - **Step 2**: Once the labelling functions have been applied to your corpus, you need to _aggregate_ their results in order to obtain a single annotation layer (instead of the multiple, possibly conflicting annotations from the labelling functions). This is done in `skweak` using a generative model that automatically estimates the relative accuracy and possible confuctions of each labelling function. 
@@ -78,3 +78,7 @@ utils.display_entities(doc, "hmm")
 ```
 
 Obviously, to get the most out of `skweak`, you will need more labelling functions, and a larger corpus including as many documents as possible from your domain. 
+
+## Documentation
+
+See the [Wiki](https://github.com/NorskRegnesentral/skweak/wiki). 
