@@ -1,6 +1,6 @@
 # skweak: Weak supervision for NLP
 
-What is `skweak`? `skweak` (pronounced `/skwiːk/`) is a Python-based software toolkit to apply weak supervision to NLP tasks. Instead of annotating texts by hand, you can use `skweak` to automatically label text documents by defining a set of _labelling functions_ and then _aggregating_ their results to obtain a labelled version of your corpus. 
+The lack of labelled data is probably the most common problem encounted by NLP practictioners. `skweak` is a Python-based software toolkit that provides a concrete solution to this problem using _weak supervision_. The idea is simple: Instead of annotating texts by hand, you can use `skweak` to automatically label text documents by defining a set of _labelling functions_ and then _aggregating_ their results to obtain a labelled version of your corpus. 
 
 `skweak` can be applied to both sequence labelling and text classification, and comes with a complete API that makes it possible to create, apply and aggregate labelling functions with just a few lines of code. Give it a try!
 
