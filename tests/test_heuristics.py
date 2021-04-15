@@ -49,7 +49,7 @@ def test_gap_tokens(nlp):
     doc = nlp("The Norwegian Computing Center's Employee Union is a long entity, much longer than Jean-Pierre.")
     annotator1 = skweak.heuristics.TokenConstraintAnnotator("test1", skweak.utils.is_likely_proper, "ENT")
     doc = annotator1(doc)
-    assert skweak.utils.get_spans(doc, ["test1"]) == {(1,4):"ENT", (5,7):"ENT", (15,16):"ENT", (17,18):"ENT"}
+    assert skweak.utils.get_spans(doc, ["test1"]) == {(1,4):"ENT", (5,7):"ENT", (15,18):"ENT"}
     annotator2 = skweak.heuristics.TokenConstraintAnnotator("test2", skweak.utils.is_likely_proper, "ENT")
     annotator2.add_gap_tokens(["'s", "-"])
     doc = annotator2(doc)

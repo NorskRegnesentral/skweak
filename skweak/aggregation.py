@@ -4,13 +4,14 @@ from abc import abstractmethod
 from typing import Iterable, List, Set, Dict, Tuple
 import numpy as np
 from .base import BaseAnnotator
-from spacy.tokens import Doc #type: ignore
+from spacy.tokens import Doc  # type: ignore
 from . import utils
 import pickle
 import hmmlearn
 import hmmlearn.base
 import pandas
-import tempfile, os
+import tempfile
+import os
 import warnings
 warnings.simplefilter(action='ignore', category=FutureWarning)
 
@@ -37,7 +38,8 @@ class BaseAggregator(BaseAnnotator):
 
         if sequence_labelling:
             if prefixes not in {"IO", "BIO", "BILUO", "BILOU"}:
-                raise RuntimeError("Tagging scheme must be 'IO', 'BIO', 'BILUO' or ''")
+                raise RuntimeError(
+                    "Tagging scheme must be 'IO', 'BIO', 'BILUO' or ''")
             self.out_labels = ["O"]
             for label in labels:
                 for prefix in prefixes.replace("O", ""):
@@ -54,7 +56,7 @@ class BaseAggregator(BaseAnnotator):
 
     def __call__(self, doc: Doc) -> Doc:
         """Aggregates all weak supervision sources"""
-        
+
         if "spans" in doc.user_data:
 
             # Extracting the observation data
@@ -65,8 +67,10 @@ class BaseAggregator(BaseAnnotator):
 
             if "O" in self.out_labels:
                 # Converting back to spans or token labels
-                output_spans = utils.token_array_to_spans(agg_df.values, self.out_labels)
-                output_probs = utils.token_array_to_probs(agg_df.values, self.out_labels)
+                output_spans = utils.token_array_to_spans(
+                    agg_df.values, self.out_labels)
+                output_probs = utils.token_array_to_probs(
+                    agg_df.values, self.out_labels)
             else:
                 output_spans = agg_df.idxmax(axis=1).to_dict()
                 output_probs = {span: {label: prob for label, prob in distrib.items() if prob > 0.1}
@@ -104,10 +108,12 @@ class BaseAggregator(BaseAnnotator):
         # Otherwise, returns a dataframe with span-level predictions
         else:
             # Extracts a list of unique spans (with identical boundaries)
-            unique_spans = set(span for s in sources for span in doc.user_data["spans"].get(s, []))
+            unique_spans = set(
+                span for s in sources for span in doc.user_data["spans"].get(s, []))
             unique_spans = sorted(unique_spans)
 
-            data = np.full((len(unique_spans), len(sources)), fill_value=-1, dtype=np.int16)
+            data = np.full((len(unique_spans), len(sources)),
+                           fill_value=-1, dtype=np.int16)
 
             # Populating the array with the labels from each source
             label_indices = {l: i for i, l in enumerate(self.observed_labels)}
@@ -136,10 +142,13 @@ class BaseAggregator(BaseAnnotator):
         or NOT-PERSON (indicating that the label should not be a person)."""
 
         if "O" in self.out_labels:
-            prefixes = {l.split("-", 1)[0] for l in self.out_labels if "-" in l}
+            prefixes = {l.split("-", 1)[0]
+                        for l in self.out_labels if "-" in l}
             for prefix in prefixes:
-                underspec_label_with_prefix = "%s-%s" % (prefix, underspec_label)
-                prefixed_vals = {"%s-%s" % (prefix, value) for value in satisfied_values}
+                underspec_label_with_prefix = "%s-%s" % (
+                    prefix, underspec_label)
+                prefixed_vals = {"%s-%s" % (prefix, value)
+                                 for value in satisfied_values}
                 self.underspecified_labels[underspec_label_with_prefix] = prefixed_vals
         else:
             self.underspecified_labels[underspec_label] = satisfied_values
@@ -156,7 +165,8 @@ class BaseAggregator(BaseAnnotator):
         which specifies, for each underspecified label in prefix form (like B-ENT),
         the set of concrete output labels satisfying it (like B-ORG, B-PERSON,etc.)"""
 
-        matrix = np.zeros((len(self.underspecified_labels), len(self.out_labels)), dtype=bool)
+        matrix = np.zeros((len(self.underspecified_labels),
+                           len(self.out_labels)), dtype=bool)
         for i, underspec_label in enumerate(self.underspecified_labels):
             for satisfied_label in self.underspecified_labels[underspec_label]:
                 matrix[i, self.out_labels.index(satisfied_label)] = True
@@ -166,7 +176,7 @@ class BaseAggregator(BaseAnnotator):
 class MajorityVoter(BaseAggregator):
     """Simple aggregator based on majority voting"""
 
-    def __init__(self, name: str, labels: List[str], sequence_labelling: bool = True, 
+    def __init__(self, name: str, labels: List[str], sequence_labelling: bool = True,
                  prefixes: str = "BIO"):
         """Creates a majority voter to aggregate spans. Arguments:
         - name is the aggregator name
@@ -177,7 +187,8 @@ class MajorityVoter(BaseAggregator):
         - prefixes must be either 'IO', 'BIO', 'BILUO'. Ignored if sequence_labelling is False
         """
 
-        super(MajorityVoter, self).__init__(name, labels, sequence_labelling, prefixes)
+        super(MajorityVoter, self).__init__(
+            name, labels, sequence_labelling, prefixes)
         self.weights = {}
 
     def _aggregate(self, observations: pandas.DataFrame, coefficient=0.1) -> pandas.DataFrame:
@@ -193,13 +204,15 @@ class MajorityVoter(BaseAggregator):
 
         # We count the votes for each label on all sources
         def count_function(x):
-            if not self.weights:
+            if len(self.weights) == 0:
                 return np.bincount(x[x >= 0], minlength=len(self.observed_labels))
             else:
-                weights = [self.weights[source][x[i]] for i, source in enumerate(observations.columns)]
+                weights = [self.weights[source][x[i]]
+                           for i, source in enumerate(observations.columns)]
                 return np.bincount(x[x >= 0], weights=weights, minlength=len(self.observed_labels))
-            
-        label_votes = np.apply_along_axis(count_function, 1, observations.values)
+
+        label_votes = np.apply_along_axis(
+            count_function, 1, observations.values)
 
         # For token-level segmentation (with a special O label), the number of "O" predictions
         # is typically much higher than any other predictions (since many labelling
@@ -207,22 +220,26 @@ class MajorityVoter(BaseAggregator):
         # normalise the number of "O" predictions
         if "O" in self.out_labels:
             label_votes = label_votes.astype(np.float32)
-            min_max = ((label_votes[:,0] - label_votes[:,0].min()) / 
-                       (label_votes[:,0].max() - label_votes[:,0].min() + 1E-20))
-            label_votes[:, 0] = (min_max * len(observations.columns) * coefficient) + 1E-20
+            min_max = ((label_votes[:, 0] - label_votes[:, 0].min()) /
+                       (label_votes[:, 0].max() - label_votes[:, 0].min() + 1E-20))
+            label_votes[:, 0] = (
+                min_max * len(observations.columns) * coefficient) + 1E-20
 
         # We start by counting only "concrete" (not-underspecified) labels
         out_label_votes = label_votes[:, :len(self.out_labels)]
         # We also add to the votes the values of underspecified labels
         if self.underspecified_labels:
             underspecified_label_votes = label_votes[:, len(self.out_labels):]
-            additional_votes = underspecified_label_votes.dot(self.get_underspecification_matrix())
-            out_label_votes += (additional_votes * out_label_votes.astype(bool))
+            additional_votes = underspecified_label_votes.dot(
+                self.get_underspecification_matrix())
+            out_label_votes += (additional_votes *
+                                out_label_votes.astype(bool))
 
         # Normalisation
         total = np.expand_dims(out_label_votes.sum(axis=1), axis=1)
         probs = out_label_votes / total
-        df = pandas.DataFrame(probs, index=observations.index, columns=self.out_labels)
+        df = pandas.DataFrame(
+            probs, index=observations.index, columns=self.out_labels)
         return df
 
 
@@ -231,7 +248,7 @@ class HMM(hmmlearn.base._BaseHMM, BaseAggregator):
     without access to the actual labels, using the Baum-Welch algorithm 
     (a special case of Expectation-Maximisation)"""
 
-    def __init__(self, name: str, out_labels: List[str], sequence_labelling: bool = True, 
+    def __init__(self, name: str, out_labels: List[str], sequence_labelling: bool = True,
                  prefixes: str = "BIO",  redundancy_weight=0.1):
         """Initialises the HMM model (which must be fitted before use). 
         Arguments:
@@ -244,30 +261,30 @@ class HMM(hmmlearn.base._BaseHMM, BaseAggregator):
         - redundancy weight is the strength of the correlation-based weighting of each 
           labelling function. A value of 0.0 disables the weighting"""
 
-        BaseAggregator.__init__(self, name, out_labels, sequence_labelling, prefixes)
+        BaseAggregator.__init__(self, name, out_labels,
+                                sequence_labelling, prefixes)
         self.redundancy_weight = redundancy_weight
-        
+
     def __call__(self, doc: Doc) -> Doc:
         """Aggregates all weak supervision sources (and fits the parameters if
         necessary)"""
-        
+
         if not hasattr(self, "emit_probs"):
             return next(iter(self.fit_and_aggregate([doc])))
         else:
-            return super(HMM, self).__call__(doc)           
-        
-        
+            return super(HMM, self).__call__(doc)
+
     def fit_and_aggregate(self, docs: Iterable[Doc], n_iter=4) -> Iterable[Doc]:
         """Starts by fitting the parameters of the HMM through Baum-Welch,
         then applies the resulting model to aggregate the outputs of the
         labelling functions."""
-        
+
         docs = list(docs)
         _, docbin_file = tempfile.mkstemp(suffix=".docbin")
         utils.docbin_writer(docs, docbin_file)
         self.fit(docbin_file)
         os.remove(docbin_file)
-        
+
         return list(self.pipe(docs))
 
     def _aggregate(self, observations: pandas.DataFrame) -> pandas.DataFrame:
@@ -284,18 +301,21 @@ class HMM(hmmlearn.base._BaseHMM, BaseAggregator):
             raise RuntimeError("Model is not yet trained")
 
         # Convert the observations to one-hot representations
-        X = {src: self._to_one_hot(observations[src].values) for src in observations.columns}
+        X = {src: self._to_one_hot(
+            observations[src].values) for src in observations.columns}
 
         # Compute the log likelihoods for each states
         framelogprob = self._compute_log_likelihood(X)
 
         # Run a forward pass
         _, forward_lattice = self._do_forward_pass(framelogprob)
-        forward_lattice = forward_lattice - forward_lattice.max(axis=1)[:, np.newaxis]
+        forward_lattice = forward_lattice - \
+            forward_lattice.max(axis=1)[:, np.newaxis]
 
         # Transform into probabilities
         posteriors = np.exp(forward_lattice)
-        posteriors = posteriors / posteriors.sum(axis=1)[:, np.newaxis] #type: ignore
+        posteriors = posteriors / \
+            posteriors.sum(axis=1)[:, np.newaxis]  # type: ignore
 
         return pandas.DataFrame(posteriors, columns=self.out_labels, index=observations.index)
 
@@ -312,11 +332,11 @@ class HMM(hmmlearn.base._BaseHMM, BaseAggregator):
         self._reset_counts(sources)
 
         # And add the counts from majority voter
-        self._add_mv_counts(docs)          
+        self._add_mv_counts(docs)
 
         # Finally, we postprocess the counts and get probabilities
         self._do_mstep()
-        
+
         monitor = hmmlearn.base.ConvergenceMonitor(tol, n_iter, True)
         monitor._reset()
         for iter in range(n_iter):
@@ -330,14 +350,17 @@ class HMM(hmmlearn.base._BaseHMM, BaseAggregator):
 
                 # Transform the document annotations into observations
                 obs = self.get_observation_df(doc)
-                
+
                 # Convert the observations to one-hot representations
-                X = {src: self._to_one_hot(obs[src].values) for src in obs.columns}
-                
+                X = {src: self._to_one_hot(obs[src].values)
+                     for src in obs.columns}
+
                 # Compute its current log-likelihood
                 framelogprob = self._compute_log_likelihood(X)
                 # Make sure there is no token with no possible states
-                if np.isnan(framelogprob).any() or framelogprob.max(axis=1).min() < -100000: #type: ignore
+                
+                if (np.isnan(framelogprob).any() or  # type: ignore
+                    framelogprob.max(axis=1).min() < -100000): 
                     pos = framelogprob.max(axis=1).argmin()
                     print("problem found for token", doc[pos], "in", self.name)
                     return
@@ -349,7 +372,8 @@ class HMM(hmmlearn.base._BaseHMM, BaseAggregator):
                 posteriors = self._compute_posteriors(fwdlattice, bwdlattice)
 
                 # We accumulate the statistics in the counts
-                self._accumulate_statistics(X, framelogprob, posteriors, fwdlattice, bwdlattice)
+                self._accumulate_statistics(
+                    X, framelogprob, posteriors, fwdlattice, bwdlattice)
                 nb_docs += 1
 
                 if nb_docs % 1000 == 0:
@@ -364,8 +388,8 @@ class HMM(hmmlearn.base._BaseHMM, BaseAggregator):
             if monitor.converged:
                 break
         return self
-           
-    def _compute_log_likelihood(self, X: Dict[str,np.ndarray]) -> np.ndarray:
+
+    def _compute_log_likelihood(self, X: Dict[str, np.ndarray]) -> np.ndarray:
         """Computes the log likelihood for the observed sequence"""
 
         logsum = np.float32()
@@ -376,24 +400,24 @@ class HMM(hmmlearn.base._BaseHMM, BaseAggregator):
                 probs = self.emit_probs[source] ** self.weights[source]
             else:
                 probs = self.emit_probs[source]
-            
+
             # We compute the likelihood of each state given the observations
             probs = np.dot(X[source], probs.T)
 
             # Impossible states have a logprob of -inf
             log_probs = np.ma.log(probs).filled(-np.inf)
-            
+
             logsum += log_probs
 
         # We also add a constraint that the probability of a state is zero
         # if no labelling functions observes it
-        X_all_obs = np.zeros(logsum.shape, dtype=bool) #type: ignore
+        X_all_obs = np.zeros(logsum.shape, dtype=bool)  # type: ignore
         for source in self.emit_counts:
             if source in X:
                 X_all_obs += X[source][:, :len(self.out_labels)]
         logsum = np.where(X_all_obs, logsum, -np.inf)
 
-        return logsum #type: ignore
+        return logsum  # type: ignore
 
     def _extract_sources(self, docs: Iterable[Doc], max_number=100):
         """Extract the names of all labelling sources mentioned in the documents
@@ -408,7 +432,6 @@ class HMM(hmmlearn.base._BaseHMM, BaseAggregator):
 
         return sources
 
-
     def _reset_counts(self, sources, fp_prior=0.1, fn_prior=0.3):
         """Reset the various counts/statistics used for for the M-steps, and also
         adds uninformed priors for the start, transition and emission counts"""
@@ -419,12 +442,14 @@ class HMM(hmmlearn.base._BaseHMM, BaseAggregator):
         # We reset all counts
         self.start_counts = np.zeros(shape=(nb_labels,))
         self.trans_counts = np.zeros(shape=(nb_labels, nb_labels))
-        self.emit_counts = {source: np.zeros(shape=(nb_labels, nb_obs)) for source in sources}
-        
+        self.emit_counts = {source: np.zeros(
+            shape=(nb_labels, nb_obs)) for source in sources}
+
         self.corr_counts = {}
         for source in sources:
             for source2 in self._get_correlated_sources(source, sources):
-                self.corr_counts[(source, source2)] =  np.zeros(shape=(nb_obs, nb_obs))
+                self.corr_counts[(source, source2)] = np.zeros(
+                    shape=(nb_obs, nb_obs))
 
         # We add some prior values
         self.start_counts += 1.000001
@@ -434,21 +459,21 @@ class HMM(hmmlearn.base._BaseHMM, BaseAggregator):
             self.emit_counts[source][:, 0] += fn_prior
             self.emit_counts[source][0, :] += fp_prior
             self.emit_counts[source] += 0.000001
-            
-        for source, source2 in self.corr_counts:         
+
+        for source, source2 in self.corr_counts:
             self.corr_counts[(source, source2)] = np.eye(nb_obs)
             self.corr_counts[(source, source2)][:, 0] += fn_prior
             self.corr_counts[(source, source2)][0, :] += fp_prior
             self.corr_counts[(source, source2)] += 0.000001
-          
-           
+
     def _get_correlated_sources(self, source, all_sources):
         source2 = source.replace("_cased", "").replace("_uncased", "")
         corr_sources = []
         for other_source in all_sources:
             if other_source == source:
                 continue
-            other_source2 = other_source.replace("_cased", "").replace("_uncased", "")
+            other_source2 = other_source.replace(
+                "_cased", "").replace("_uncased", "")
             if source2 == other_source2:
                 corr_sources.append(other_source)
             elif (source2.startswith(other_source2) or source2.endswith(other_source2)
@@ -464,12 +489,12 @@ class HMM(hmmlearn.base._BaseHMM, BaseAggregator):
         mv = MajorityVoter("", self.out_labels, sequence_labelling=False)
         mv.underspecified_labels = self.underspecified_labels
         mv.sources_to_avoid = self.sources_to_avoid
-        
+
         # Also apply weights to the majority voter
         if self.redundancy_weight:
             self._update_weights()
             mv.weights = self.weights
-            
+
         for doc in docs:
 
             # We extract the observations
@@ -486,7 +511,8 @@ class HMM(hmmlearn.base._BaseHMM, BaseAggregator):
                 self.trans_counts += np.outer(agg_array[i-1], agg_array[i])
 
             # Get indicator matrices for the observations
-            one_hots = {src: self._to_one_hot(obs[src].values) for src in obs.columns}
+            one_hots = {src: self._to_one_hot(
+                obs[src].values) for src in obs.columns}
 
             # Update the emission probabilities
             for source in one_hots:
@@ -495,9 +521,9 @@ class HMM(hmmlearn.base._BaseHMM, BaseAggregator):
 
             for src, src2 in self.corr_counts:
                 if src in one_hots and src2 in one_hots:
-                    self.corr_counts[(src, src2)] += np.dot(one_hots[src2].T, one_hots[src])
+                    self.corr_counts[(
+                        src, src2)] += np.dot(one_hots[src2].T, one_hots[src])
 
- 
     def _to_one_hot(self, vector: np.ndarray) -> np.ndarray:
         """Given a vector of indices to observed labels, returns a 2D
         boolean matrix representing the presence/absence of a label. """
@@ -506,7 +532,7 @@ class HMM(hmmlearn.base._BaseHMM, BaseAggregator):
         matrix[np.arange(vector.size), vector] = True
         return matrix
 
-    def _accumulate_statistics(self, X:Dict[str, np.ndarray], framelogprob: np.ndarray, posteriors: np.ndarray, fwdlattice, bwdlattice):
+    def _accumulate_statistics(self, X: Dict[str, np.ndarray], framelogprob: np.ndarray, posteriors: np.ndarray, fwdlattice, bwdlattice):
         """Acccumulate the counts based on the sufficient statistics"""
 
         # Update the start counts
@@ -516,19 +542,19 @@ class HMM(hmmlearn.base._BaseHMM, BaseAggregator):
         n_samples, n_components = framelogprob.shape
         if n_samples > 1:
             log_xi_sum = np.full((n_components, n_components), -np.inf)
-            hmmlearn._hmmc._compute_log_xi_sum(n_samples, n_components, fwdlattice, #type: ignore
-                                               hmmlearn.base.log_mask_zero(self.transmat_),
+            hmmlearn._hmmc._compute_log_xi_sum(n_samples, n_components, fwdlattice,  # type: ignore
+                                               hmmlearn.base.log_mask_zero(
+                                                   self.transmat_),
                                                bwdlattice, framelogprob, log_xi_sum)
             self.trans_counts += np.exp(log_xi_sum)
 
         # Updating the emission counts
         for src in X:
             self.emit_counts[src] += np.dot(posteriors.T, X[src])
-            
+
         for src, src2 in self.corr_counts:
             if src in X and src2 in X:
                 self.corr_counts[(src, src2)] += np.dot(X[src2].T, X[src])
-
 
     def _do_mstep(self):
         """Performs the maximisation step of the EM algorithm"""
@@ -538,42 +564,45 @@ class HMM(hmmlearn.base._BaseHMM, BaseAggregator):
             self._postprocess_counts()
 
         # We normalise to get probabilities
-        self.startprob_ = self.start_counts / (self.start_counts.sum() + 1E-100)
+        self.startprob_ = self.start_counts / \
+            (self.start_counts.sum() + 1E-100)
 
         trans_norm = (self.trans_counts.sum(axis=1) + 1E-100)[:, np.newaxis]
         self.transmat_ = self.trans_counts / trans_norm
 
-        self.emit_probs: Dict[str,np.ndarray] = {}
+        self.emit_probs: Dict[str, np.ndarray] = {}
         for source in self.emit_counts:
-            normalisation = (self.emit_counts[source] + 1E-100).sum(axis=-1)[:, np.newaxis]
+            normalisation = (
+                self.emit_counts[source] + 1E-100).sum(axis=-1)[:, np.newaxis]
             self.emit_probs[source] = self.emit_counts[source] / normalisation
-        
+
         # Compute weights per labelling sources
-        if self.redundancy_weight: 
+        if self.redundancy_weight:
             self._update_weights()
-    
-       
+
     def _update_weights(self):
         """Update the weights of each labelling function to account for correlated sources"""
-                              
-        # We reset the weights                                                                
-        self.weights = {source:np.full(len(self.observed_labels),1) for source in self.emit_counts}
-        
+
+        # We reset the weights
+        self.weights = {source: np.full(len(self.observed_labels), 1, dtype=np.float32) 
+                        for source in self.emit_counts}
+
         # We compute a weight for each (source, observed label) pair
         for source in self.emit_counts:
             for i in range(len(self.observed_labels)):
 
                 # We compute the recall with each correlated source
                 recalls_with_corr_sources = []
-                for (source1, source2), counts in self.corr_counts.items(): 
+                for (source1, source2), counts in self.corr_counts.items():
                     if source1 == source:
-                        recall = counts[i,i]/counts[i,:].sum()
-                        recalls_with_corr_sources.append(recall)             
-           
+                        recall = counts[i, i]/counts[i, :].sum()
+                        recalls_with_corr_sources.append(recall)
+
                 # The weight decreases with the number of correlated labelling functions
                 # that have a high recall with the current function
-                self.weights[source][i] = 1/(1+self.redundancy_weight * np.exp(np.sum(recalls_with_corr_sources)))               
-            
+                self.weights[source][i] = 1 / np.exp(self.redundancy_weight * #type: ignore
+                                                     np.sum(recalls_with_corr_sources))
+
 
     def _postprocess_counts(self):
         """Postprocess the counts to erase invalid starts, transitions or emissions"""
@@ -594,7 +623,8 @@ class HMM(hmmlearn.base._BaseHMM, BaseAggregator):
         # We also take into account the underspecified label matrix (but in a soft manner)
         for emit_counts in self.emit_counts.values():
             cur_counts = emit_counts[:, len(self.out_labels):]
-            new_counts = 0.1 * cur_counts + 0.9 * cur_counts * self.get_underspecification_matrix().T
+            new_counts = 0.1 * cur_counts + 0.9 * cur_counts * \
+                self.get_underspecification_matrix().T
             emit_counts[:, len(self.out_labels):] = new_counts
 
     def pretty_print(self, sources=None, nb_digits=2):
@@ -616,15 +646,15 @@ class HMM(hmmlearn.base._BaseHMM, BaseAggregator):
         print("--------")
         for source in self.emit_counts:
             if sources == None or source in sources:
-                print("Emission model for source: %s"%(source))
+                print("Emission model for source: %s" % (source))
                 df = pandas.DataFrame(self.emit_probs[source], index=self.out_labels,
                                       columns=self.observed_labels)
-                dft = df.transpose()
-                dft["weights"] = self.weights[source]
-                df = dft.transpose()
+                if self.redundancy_weight > 0:
+                    dft = df.transpose()
+                    dft["weights"] = self.weights[source]
+                    df = dft.transpose()
                 print(df.round(nb_digits))
                 print("--------")
-
 
     def save(self, filename):
         """Saves the HMM model to a file"""
@@ -640,7 +670,6 @@ class HMM(hmmlearn.base._BaseHMM, BaseAggregator):
         ua = pickle.load(fd)
         fd.close()
         return ua
-
 
 
 # class SnorkelAggregator(BaseAggregator):

@@ -143,11 +143,11 @@ def test_hmm2(doc):
     hmm = aggregation.HMM("hmm", ["GPE", "NORP", "ORG", "PERSON"])
     doc.user_data["spans"]["underspec"] = {(5,7):"ENT", (9,12):"ENT"}
     hmm.add_underspecified_label("ENT", {"PERSON", "ORG"})
-    utils.docbin_writer([doc]*10, "data/test_tmp1.docbin")
+    utils.docbin_writer([doc]*100, "data/test_tmp1.docbin")
     hmm.fit("data/test_tmp1.docbin")
     doc = hmm(doc)
     token_labels = doc.user_data["agg_probs"]["hmm"]
-    assert round(sum([prob for probs in token_labels.values() for prob in probs.values()])) == 6
+    assert round(sum([prob for probs in token_labels.values() for prob in probs.values()])) == 7
     assert token_labels[9]["B-ORG"] > 0.97
     assert ({label for labels in token_labels.values() for label in labels} == 
             {'B-GPE', 'B-ORG', 'I-ORG', 'B-PERSON', 'B-NORP', 'I-PERSON'})
@@ -158,31 +158,34 @@ def test_hmm2(doc):
 def test_combi(doc2, combi_annotator):
     
     combi_annotator(doc2)
-    assert len(doc2.user_data["spans"]["spacy"]) == 38
+    assert len(doc2.user_data["spans"]["spacy"]) > 35
+    assert len(doc2.user_data["spans"]["spacy"]) < 45
     assert len(doc2.user_data["spans"]["geo_gpe_cased"]) == 0
     assert len(doc2.user_data["spans"]["geo_gpe_uncased"]) == 1
     assert len(doc2.user_data["spans"]["products_product_cased"]) == 9
-    assert len(doc2.user_data["spans"]["proper2_detector"]) == 37
-    assert len(doc2.user_data["spans"]["full_name_detector"]) == 4
-    assert len(doc2.user_data["spans"]["doc_history_person_cased"]) == 3
+    assert len(doc2.user_data["spans"]["proper2_detector"]) >= 32
+    assert len(doc2.user_data["spans"]["proper2_detector"]) < 40
+    assert len(doc2.user_data["spans"]["full_name_detector"]) in {3,4}
+    assert len(doc2.user_data["spans"]["doc_history_person_cased"]) in {2,3}
     assert len(doc2.user_data["spans"]["doc_majority_person_cased"]) == 2
-    assert len(doc2.user_data["spans"]["doc_majority_org_cased"]) == 4
-    assert len(doc2.user_data["spans"]["doc_majority_product_cased"]) == 9
+    assert len(doc2.user_data["spans"]["doc_majority_org_cased"]) >= 4
+    assert len(doc2.user_data["spans"]["doc_majority_product_cased"]) >= 8
       
 def test_hmm3(doc2, combi_annotator):
     hmm = aggregation.HMM("hmm", ["GPE", "PRODUCT", "MONEY", "PERSON", "ORG", "DATE"])
     hmm.add_underspecified_label("ENT", {"GPE", "PRODUCT", "MONEY", "PERSON", "ORG", "DATE"})
     combi_annotator(doc2)
-    utils.docbin_writer([doc2]*10, "data/test_tmp2.docbin")
+    utils.docbin_writer([doc2]*100, "data/test_tmp2.docbin")
     hmm.fit("data/test_tmp2.docbin")
     doc2 = hmm(doc2)
-    assert len(doc2.user_data["agg_spans"]["hmm"])==31
+    assert len(doc2.user_data["agg_spans"]["hmm"]) > 30
+    assert len(doc2.user_data["agg_spans"]["hmm"]) < 45
     assert doc2.user_data["agg_spans"]["hmm"][(1,2)] == "GPE"
-    assert doc2.user_data["agg_spans"]["hmm"][(31,34)] == "ORG"
-    assert doc2.user_data["agg_spans"]["hmm"][(34,37)] == "PRODUCT"
-    assert doc2.user_data["agg_spans"]["hmm"][(145,147)] == "PERSON"
-    assert doc2.user_data["agg_spans"]["hmm"][(292,294)] == "PERSON"
-#    assert doc2.user_data["agg_spans"]["hmm"][(224,229)] == "ORG"
+    found_entities = {(doc2[s:e].text, l) for (s,e), l in utils.get_spans(doc2, ["hmm"]).items()}
+    assert ('Scott Moore', 'PERSON') in found_entities
+    assert (('197', 'MONEY') in found_entities or ("$197", "MONEY") in found_entities)
+    assert ('iPhone 3Gs', 'PRODUCT') in found_entities
+ #   assert ('$50', 'MONEY') in found_entities
     os.remove("data/test_tmp2.docbin")
 
     

@@ -11,14 +11,14 @@ from skweak import utils
 from spacy.tokens import Doc, Span #type: ignore
 
 # Data files for gazetteers
-WIKIDATA = os.path.dirname(__file__) + "/../data/wikidata_tokenised.json"
-WIKIDATA_SMALL =  os.path.dirname(__file__) + "/../data/wikidata_small_tokenised.json"
-COMPANY_NAMES = os.path.dirname(__file__) + "/../data/company_names_tokenised.json"
-GEONAMES =  os.path.dirname(__file__) + "/../data/geonames.json"
-CRUNCHBASE =  os.path.dirname(__file__) + "/../data/crunchbase.json"
-PRODUCTS =  os.path.dirname(__file__) + "/../data/products.json"
-FIRST_NAMES =  os.path.dirname(__file__) + "/../data/first_names.json"
-FORM_FREQUENCIES =  os.path.dirname(__file__) + "/../data/form_frequencies.json"
+WIKIDATA = os.path.dirname(__file__) + "/../../data/wikidata_tokenised.json"
+WIKIDATA_SMALL =  os.path.dirname(__file__) + "/../../data/wikidata_small_tokenised.json"
+COMPANY_NAMES = os.path.dirname(__file__) + "/../../data/company_names_tokenised.json"
+GEONAMES =  os.path.dirname(__file__) + "/../../data/geonames.json"
+CRUNCHBASE =  os.path.dirname(__file__) + "/../../data/crunchbase.json"
+PRODUCTS =  os.path.dirname(__file__) + "/../../data/products.json"
+FIRST_NAMES =  os.path.dirname(__file__) + "/../../data/first_names.json"
+FORM_FREQUENCIES =  os.path.dirname(__file__) + "/../../data/form_frequencies.json"
 
 # List of currency symbols and three-letter codes
 CURRENCY_SYMBOLS =  {"$", "¥", "£", "€", "kr", "₽", "R$", "₹", "Rp", "₪", "zł", "Rs", "₺", "RS"}
@@ -265,10 +265,10 @@ class NERAnnotator(CombinedAnnotator):
         
         self.add_annotator(ModelAnnotator("core_web_md", "en_core_web_md"))
         self.add_annotator(TruecaseAnnotator("core_web_md_truecase", "en_core_web_md", FORM_FREQUENCIES))
- #       self.add_annotator(ModelAnnotator("conll2003", os.path.dirname(__file__) + "/../data/conll2003"))
-        self.add_annotator(ModelAnnotator("BTC", os.path.dirname(__file__) + "/../data/BTC"))
-        self.add_annotator(TruecaseAnnotator("BTC_truecase", os.path.dirname(__file__) + "/../data/BTC", FORM_FREQUENCIES))
- #       self.add_annotator(ModelAnnotator("SEC", "data/SEC-filings"))
+        self.add_annotator(ModelAnnotator("core_web_trf", "en_core_web_trf"))
+        self.add_annotator(TruecaseAnnotator("core_web_trf_truecase", "en_core_web_trf", FORM_FREQUENCIES))
+        self.add_annotator(ModelAnnotator("BTC", os.path.dirname(__file__) + "/../../data/btc"))
+        self.add_annotator(TruecaseAnnotator("BTC_truecase", os.path.dirname(__file__) + "/../../data/btc", FORM_FREQUENCIES))
 
         # Avoid spans that start with an article
         editor = lambda span: span[1:] if span[0].lemma_ in {"the", "a", "an"} else span
@@ -276,6 +276,8 @@ class NERAnnotator(CombinedAnnotator):
         self.add_annotator(SpanEditorAnnotator("edited_BTC_truecase", "BTC_truecase", editor))
         self.add_annotator(SpanEditorAnnotator("edited_core_web_md", "core_web_md", editor))
         self.add_annotator(SpanEditorAnnotator("edited_core_web_md_truecase", "core_web_md_truecase", editor))
+        self.add_annotator(SpanEditorAnnotator("edited_core_web_trf", "core_web_md", editor))
+        self.add_annotator(SpanEditorAnnotator("edited_core_web_trf_truecase", "core_web_trf_truecase", editor))
 
         return self
         
@@ -498,13 +500,13 @@ class SnipsAnnotator(SpanAnnotator):
         results = self.parser.parse(text)
         for result in results:
             span = doc.char_span(result["range"]["start"], result["range"]["end"])
-            if span is None or span.lower_ in {"now"} or span.text in {"may"}:
+            if span is None or span.text.lower() in {"now"} or span.text in {"may"}:
                 continue
             label = None
-            if (result["entity_kind"]=="snips/number" and span.lower_ not in 
+            if (result["entity_kind"]=="snips/number" and span.text.lower() not in 
                 {"one", "some", "few", "many", "several"}):
                 label = "CARDINAL"
-            elif (result["entity_kind"]=="snips/ordinal" and span.lower_ not in 
+            elif (result["entity_kind"]=="snips/ordinal" and span.text.lower() not in 
                   {"first", "second", "the first", "the second"}):
                 label = "ORDINAL"
             elif result["entity_kind"]=="snips/temperature":

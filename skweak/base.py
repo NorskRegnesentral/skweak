@@ -4,7 +4,7 @@ from abc import abstractmethod
 import itertools
 from typing import Sequence, Tuple, Optional, Iterable
 from . import utils
-from spacy.tokens import Doc #type: ignore
+from spacy.tokens import Doc  # type: ignore
 
 
 ############################################
@@ -72,7 +72,8 @@ class SpanAnnotator(BaseAnnotator):
         # Set of other labelling sources that have priority
         self.incompatible_sources = []
 
-    def add_incompatible_sources(self, other_sources: Sequence[str]):  # type:ignore
+    # type:ignore
+    def add_incompatible_sources(self, other_sources: Sequence[str]):
         """Specifies a list of sources that are not compatible with the current 
         source and should take precedence over it in case of overlap"""
 
@@ -115,7 +116,8 @@ class SpanAnnotator(BaseAnnotator):
             intervals = sorted(doc.user_data["spans"].get(source, {}).keys())
 
             # Performs a binary search to efficiently detect overlapping spans
-            start_search, end_search = utils._binary_search(start, end, intervals)
+            start_search, end_search = utils._binary_search(
+                start, end, intervals)
             for interval_start, interval_end in intervals[start_search:end_search]:
                 if start < interval_end and end > interval_start:
                     return False

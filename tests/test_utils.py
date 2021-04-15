@@ -7,7 +7,6 @@ def test_likely_proper(nlp_small, nlp):
     for nlpx in [nlp_small, nlp]:
         doc = nlpx("This is a test. Please tell me that is works.")
         for tok in doc:
-            print(tok,utils.is_likely_proper(tok))
             assert not utils.is_likely_proper(tok)
         doc = nlpx("Pierre Lison is living in Oslo.")
         for i, tok in enumerate(doc):
