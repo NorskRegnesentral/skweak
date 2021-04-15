@@ -2,7 +2,7 @@
 
 Labelled data remains a scarce resource in many practical NLP scenarios. This is especially the case when working with resource-poor languages (or text domains), or when we wish to use task-specific labels without pre-existing datasets. The only available option is often to collect and annotate texts by hand, which is an expensive and time-consuming process. 
 
-`skweak` (pronounced `/ski:k/`) is a Python-based software toolkit that provides a concrete solution to this problem using _weak supervision_. `skweak` is built around a very simple idea: Instead of annotating texts by hand, you can use `skweak` to automatically label text documents by defining a set of _labelling functions_ and then _aggregating_ their results to obtain a labelled version of your corpus. 
+`skweak` (pronounced `/ski:k/`) is a Python-based software toolkit that provides a concrete solution to this problem using _weak supervision_. `skweak` is built around a very simple idea: Instead of annotating texts by hand, we define a set of _labelling functions_ to automatically label our documents, and then _aggregate_ their results to obtain a labelled version of your corpus. 
 
 `skweak` can be applied to both sequence labelling and text classification, and comes with a complete API that makes it possible to create, apply and aggregate labelling functions with just a few lines of code. Give it a try!
 
