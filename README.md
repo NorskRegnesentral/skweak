@@ -6,6 +6,8 @@ What is `skweak`? `skweak` (pronounced `/skwiːk/`) is a Python-based software t
 
 For more details on `skweak`, see our paper (...).
 
+**Documentation & API**: See the [Wiki](https://github.com/NorskRegnesentral/skweak/wiki) for details on how to use `skweak`. 
+
 ## Requirements
 
 The following Python packages must be installed:
@@ -15,6 +17,8 @@ The following Python packages must be installed:
 - `numpy` >= 1.18
 
 `skweak` has been developed with Python 3.x (we haven't tested it for Python 2.x, but it might be possible to get it to work).
+
+## Install
 
 TODO: make `skweak` into a full-blown package that can be installed through `pip install`. 
 
@@ -26,10 +30,10 @@ TODO: make `skweak` into a full-blown package that can be installed through `pip
 </p><br>
 
 The use of weak supervision with `skweak` goes through the following steps:
-- *Step 0*: First, you need raw (unlabelled) data from your text domain. `skweak` is build on top of [SpaCy](http://www.spacy.io), and operates with Spacy `Doc` objects, so you first need to convert your documents to `Doc` objects with `spacy`.
-- *Step 1*: Then, we need to define a range of labelling functions that will take those documents and annotate spans with labels. Those labelling functions can take a variety of forms, such as heuristics, gazetteers, machine learning models or even results from crowd-workers. See the ![documentation](https://github.com/NorskRegnesentral/skweak/wiki) for more details. 
-- *Step 2*: Once the labelling functions have been applied to your corpus, you need to _aggregate_ their results in order to obtain a single annotation layer (instead of the multiple, possibly conflicting annotations from the labelling functions). This is done in `skweak` using a generative model that automatically estimates the relative accuracy and possible confuctions of each labelling function. 
-- *Step 3*: Finally, based on those aggregated labels, we can train our final model. Step 2 gives us a labelled corpus that (probabilistically) aggregates the outputs of all labelling functions, and you can use this labelled data to estimate any kind of machine learning model. You are free to use whichever model/framework you prefer. 
+- **Step 0**: First, you need raw (unlabelled) data from your text domain. `skweak` is build on top of [SpaCy](http://www.spacy.io), and operates with Spacy `Doc` objects, so you first need to convert your documents to `Doc` objects with `spacy`.
+- **Step 1**: Then, we need to define a range of labelling functions that will take those documents and annotate spans with labels. Those labelling functions can take a variety of forms, such as heuristics, gazetteers, machine learning models or even results from crowd-workers. See the ![documentation](https://github.com/NorskRegnesentral/skweak/wiki) for more details. 
+- **Step 2**: Once the labelling functions have been applied to your corpus, you need to _aggregate_ their results in order to obtain a single annotation layer (instead of the multiple, possibly conflicting annotations from the labelling functions). This is done in `skweak` using a generative model that automatically estimates the relative accuracy and possible confuctions of each labelling function. 
+- **Step 3**: Finally, based on those aggregated labels, we can train our final model. Step 2 gives us a labelled corpus that (probabilistically) aggregates the outputs of all labelling functions, and you can use this labelled data to estimate any kind of machine learning model. You are free to use whichever model/framework you prefer. 
 
 ## Quickstart
 
@@ -66,7 +70,7 @@ hmm = aggregation.HMM("hmm", ["PERSON", "DATE", "MONEY"])
 hmm.fit_and_aggregate([doc])
 
 # we can then visualise the final result
-hmm.utils.display_entities(doc, "hmm")
+utils.display_entities(doc, "hmm")
 ```
 
 Obviously, to get the most out of `skweak`, you will need more labelling functions, and a larger corpus including as many documents as possible from your domain. 
