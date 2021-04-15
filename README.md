@@ -20,7 +20,10 @@ TODO: make `skweak` into a full-blown package that can be installed through `pip
 
 ## Basic Overview
 
-![Geneveral overview of skweak](https://raw.githubusercontent.com/NorskRegnesentral/skweak/main/data/skweak_procedure.png)
+<br>
+<p align="center">
+   <img alt="Overview of skweak" src="https://raw.githubusercontent.com/NorskRegnesentral/skweak/main/data/skweak_procedure.png"/>
+</p><br>
 
 The use of weak supervision with `skweak` goes through the following steps:
 - *Step 0*: First, you need raw (unlabelled) data from your text domain. `skweak` is build on top of [SpaCy](http://www.spacy.io), and operates with Spacy `Doc` objects, so you first need to convert your documents to `Doc` objects with `spacy`.
@@ -30,26 +33,23 @@ The use of weak supervision with `skweak` goes through the following steps:
 
 ## Quickstart
 
+Here is a minimal example with three labelling functions (LFs) applied on a single document:
+
 ```python
 import spacy, re
 from skweak import heuristics, gazetteers, aggregation, utils
 
-# First heuristic
+# LF 1: heuristic to detect occurrences of MONEY entities
 def money_detector(doc):
-   """Searches for occurrences of
-   MONEY entities in text"""      
-        
    for i, tok in enumerate(doc[1:]):
-      if (tok.text[0].isdigit() and 
-          tok.nbor(-1).is_currency):
+      if tok.text[0].isdigit() and tok.nbor(-1).is_currency:
           yield (i-1,i+1, "MONEY")
-          
 lf1 = heuristics.FunctionAnnotator("money", money_detector)
 
-# Detection of years
+# LF 2: detection of years with a regex
 lf2= heuristics.TokenConstraintAnnotator ("years", lambda tok: re.match("(19|20)\d{2}$", tok.text), "DATE")
 
-# Gazetteer with a few names
+# LF 3: a gazetteer with a few names
 NAMES = [("Barack", "Obama"), ("Donald", "Trump"), ("Joe", "Biden")]
 trie = gazetteers.Trie(NAMES)
 lf3 = gazetteers.GazetteerAnnotator("presidents", trie, "PERSON")
