@@ -90,13 +90,9 @@ def replace_ner_spans(doc: Doc, source: str):
 
     # We create Spacy spans based on the annotation layer
     spans = []
-    if source in doc.user_data["spans"]:
-        for (start, end), label in get_spans(doc, [source]).items():
-            spans.append(Span(doc, start, end, label))
-    elif source in doc.user_data["agg_spans"]:
-        for (start, end), (label, prob) in get_agg_spans(doc, source).items():
-            spans.append(Span(doc, start, end, label))
-
+    if source in doc.spans:
+        for span in doc.spans[source]:
+            spans.append(span)
     doc.ents = tuple(spans)
 
     return doc
@@ -249,73 +245,64 @@ def json_writer(docs, json_file_path: str, source: str = None):
 ############################################
 
 
-def get_spans(doc: Doc, sources: List[str], labels: List[str] = None):
+def get_spans(doc: Doc, sources: List[str], labels: Optional[List[str]] = None
+              ) -> List[Span]:
     """Return the spans annotated by a list of labelling sources. If two
-    spans are overlapping, the longest spans are kept.
-
-    One can also specify the labels to focus on (if empty, we extract
-    all). The method returns a dictionary of non-overlapping spans where the keys
-    are (start, end) pairs and the values are the corresponding labels.
-    """
+    spans are overlapping, the longest spans are kept. One can also specify the 
+    labels to focus on (if empty, we extract all).  """
 
     # Creating a list of spans
     spans = []
     for source in sources:
-        if source in doc.user_data.get("spans", []):
-            for (start, end), label in doc.user_data["spans"][source].items():
-                if not labels or label in labels:
-                    spans.append((start, end, label))
-        elif source in doc.user_data.get("agg_spans", []):
-            for (start, end), (label, _) in get_agg_spans(doc, source, labels).items():
-                spans.append((start, end, label))
+        if source in doc.spans:
+            for span in doc.spans[source]:
+                if labels is None or span.label_ in labels:
+                    spans.append(span)
         else:
-            raise RuntimeError(
-                "Annotation source \"%s\" cannot be found" % source)
+            raise RuntimeError("Annotation source \"%s\" cannot be found" % source)
 
-    spans = remove_overlaps(spans)
+    # Remove possible overlaps
+    spans = _remove_overlaps(spans)
 
-    spans = {(start, end): label for start, end, label in spans}
     return spans
 
 
-def get_agg_spans(doc: Doc, agg_source: str, labels: List[str] = None):
+def get_spans_with_probs(doc: Doc, source: str, labels: Optional[List[str]] = None
+                         ) -> List[Tuple[Span,float]]:
     """Return the spans annotated by an aggregated source. The method returns a
     dictionary of non-overlapping spans where the keys
     are (start, end) pairs and the values are pairs of (label, prob).
     """
 
-    spans = {}
-    if agg_source in doc.user_data.get("agg_spans", []):
-        for (start, end), label in doc.user_data["agg_spans"][agg_source].items():
-            if not labels or label in labels:
-
-                prob = get_agg_span_prob(doc, agg_source, start, end, label)
-                spans[(start, end)] = (label, prob)
-    elif agg_source in doc.user_data["spans"]:
-        for (start, end), label in get_spans(doc, [agg_source], labels).items():
-            spans[(start, end)] = (label, 1.0)
+    spans = []
+    if source in doc.spans:
+        for span in doc.spans[source]:
+            if labels is None or span.label_ in labels:
+                prob = _get_agg_span_prob(doc, source, span)
+                spans.append((span, prob))
     else:
-        raise RuntimeError(
-            "Annotation source \"%s\" cannot be found" % agg_source)
+        raise RuntimeError("Annotation source \"%s\" cannot be found" % source)
 
     return spans
 
 
-def get_agg_span_prob(doc, source, start, end, label):
+def _get_agg_span_prob(doc, source, span):
     """Get the probability that the source assigns the (start,end)->label span"""
 
-    if source not in doc.user_data["agg_probs"]:
+    if source not in doc.spans:
         return 0
-    agg_probs = doc.user_data["agg_probs"][source]
-    if (start, end) in agg_probs:
-        return agg_probs[(start, end)].get(label, 0.0)
+    elif "probs" not in doc.spans[source].attrs:
+        return 1
+    probs = doc.spans[source].attrs["probs"]
+    if (span.start, span.end) in probs:
+        return probs[(span.start, span.end)]
     probs_per_token = []
-    for i in range(start, end):
-        if i in agg_probs:
-            for prefixed_label, prob in agg_probs[i].items():
-                if prefixed_label.endswith("-%s" % label):
+    for i in range(span.start, span.end):
+        if i in probs:
+            for prefixed_label, prob in probs[i].items():
+                if prefixed_label.endswith("-%s" % span.label_):
                     probs_per_token.append(prob)
-    return sum(probs_per_token)/(end-start)
+    return sum(probs_per_token)/(len(span))
 
 
 def count_nb_occurrences(tokens: Tuple[str, ...], all_tokens: List[str]):
@@ -351,8 +338,7 @@ def at_least_nb_occurrences(tokens: Tuple[str, ...], all_tokens: List[str], min_
     return False
 
 
-def remove_overlaps(spans: List[Tuple[int, int, str]]
-                    ) -> List[Tuple[int, int, str]]:
+def _remove_overlaps(spans: List[Span]) -> List[Span]:
     """Remove overlaps between spans expressed as (start, end, label, score)
     tuples. When two overlapping spans are detected, the method keeps the
     longest span and removes the other. If the two scores are identical,
@@ -369,8 +355,10 @@ def remove_overlaps(spans: List[Tuple[int, int, str]]
         for i in range(1, len(spans)):
 
             # If two spans are overlapping , keep the longest one
-            start1, end1, _ = spans[i-1]
-            start2, end2, _ = spans[i]
+            start1 = spans[i-1].start
+            end1 = spans[i-1].end
+            start2 = spans[i].start
+            end2 = spans[i].end
             if start2 < end1 and start1 < end2:
                 length_diff = (end1-start1) - (end2-start2)
                 if length_diff > 0:
@@ -478,31 +466,31 @@ def spans_to_array(doc: Doc, labels: List[str],
             labels_without_prefix.add(label)
 
     if sources is None:
-        sources = list(doc.user_data.get("spans", {}).keys())
+        sources = list(doc.spans.keys())
 
     # Creating the numpy array itself
     data = np.zeros((len(doc), len(sources)), dtype=np.int16)
 
     for source_index, source in enumerate(sources):
-        for (start, end), label in doc.user_data["spans"].get(source, {}).items():
+        for span in doc.spans.get(source, []):
 
-            if label not in labels_without_prefix:
+            if span.label_ not in labels_without_prefix:
                 continue
 
             # If the span is a single token, we can use U
-            if "U" in prefixes and (end-start) == 1:
-                data[start, source_index] = label_indices["U-%s" % label]
+            if "U" in prefixes and len(span) == 1:
+                data[span.start, source_index] = label_indices["U-%s" % span.label_]
                 continue
 
             # Otherwise, we use B, I and L
             if "B" in prefixes:
-                data[start, source_index] = label_indices["B-%s" % label]
+                data[span.start, source_index] = label_indices["B-%s" % span.label_]
             if "I" in prefixes:
-                start_i = (start+1) if "B" in prefixes else start
-                end_i = (end-1) if "L" in prefixes else end
-                data[start_i:end_i, source_index] = label_indices["I-%s" % label]
+                start_i = (span.start+1) if "B" in prefixes else span.start
+                end_i = (span.end-1) if "L" in prefixes else span.end
+                data[start_i:end_i, source_index] = label_indices["I-%s" % span.label_]
             if "L" in prefixes:
-                data[end-1, source_index] = label_indices["L-%s" % label]
+                data[span.end-1, source_index] = label_indices["L-%s" % span.label_]
 
     return data
 
@@ -625,7 +613,7 @@ def is_valid_transition(prefix_label1, prefix_label2, encoding="BIO"):
 # Visualisation
 ############################################
 
-def display_entities(doc: Doc, layer=None, add_tooltip=False):
+def display_entities(doc: Doc, layer=None, add_tooltip=True):
     """Display the entities annotated in a spacy document, based on the
     provided annotation layer(s). If layer is None, the method displays
     the entities from Spacy.
@@ -634,61 +622,60 @@ def display_entities(doc: Doc, layer=None, add_tooltip=False):
     import spacy.displacy
     import IPython.core.display
     if layer is None:
-        spans = {(ent.start, ent.end): ent.label_ for ent in doc.ents}
+        spans = doc.ents
     elif type(layer) is list:
         spans = get_spans(doc, layer)
     elif type(layer) == str:
         if "*" in layer:
-            matched_layers = [l for l in doc.user_data["spans"]
+            matched_layers = [l for l in doc.spans
                               if re.match(layer.replace("*", ".*?")+"$", l)]
             spans = get_spans(doc, matched_layers)
         else:
-            spans = get_spans(doc, [layer])
+            spans = doc.spans[layer]
     else:
         raise RuntimeError("Layer type not accepted")
 
     entities = {}
-    for (start, end), label in sorted(spans.items()):
+    for span in spans:
 
-        start_char = doc[start].idx
-        end_char = doc[end-1].idx + len(doc[end-1])
+        start_char = doc[span.start].idx
+        end_char = doc[span.end-1].idx + len(doc[span.end-1])
 
         if (start_char, end_char) not in entities:
-            entities[(start_char, end_char)] = label
+            entities[(start_char, end_char)] = span.label_
 
         # If we have several alternative labels for a span, join them with +
-        elif label not in entities[(start_char, end_char)]:
+        elif span.label_ not in entities[(start_char, end_char)]:
             entities[(start_char, end_char)] = entities[(
-                start_char, end_char)] + "+" + label
+                start_char, end_char)] + "+" + span.label_
 
     entities = [{"start": start, "end": end, "label": label}
                 for (start, end), label in entities.items()]
     doc2 = {"text": doc.text, "title": None, "ents": entities}
     html = spacy.displacy.render(doc2, jupyter=False, style="ent", manual=True)
 
-    if add_tooltip:
-        html = _enrich_with_tooltip(doc, html)  # type: ignore
+    if add_tooltip and type(layer)==str and "sources" in doc.spans[layer].attrs:
+        html = _enrich_with_tooltip(doc, html, doc.spans[layer].attrs["sources"])  # type: ignore
 
     ipython_html = IPython.core.display.HTML(
         '<span class="tex2jax_ignore">{}</span>'.format(html))
     return IPython.core.display.display(ipython_html)
 
 
-def _enrich_with_tooltip(doc: Doc, html: str):
+def _enrich_with_tooltip(doc: Doc, html: str, sources: List[str]):
     """Enrich the HTML produced by spacy with tooltips displaying the predictions
     of each labelling function"""
 
     import spacy.util
-    if "spans" not in doc.user_data:
+    if len(doc.spans)==0:
         return html
 
     # Retrieves annotations for each token
     annotations_by_tok = {}
-    for annotator in sorted(doc.user_data["spans"].keys()):
-        for (start, end), label in doc.user_data["spans"][annotator].items():
-            for i in range(start, end):
-                annotations_by_tok[i] = annotations_by_tok.get(
-                    i, []) + [(annotator, label)]
+    for source in sources:
+        for span in doc.spans[source]:
+            for i in range(span.start, span.end):
+                annotations_by_tok[i] = annotations_by_tok.get(i, []) + [(source, span.label_)]
 
     # We determine which characters are part of the HTML markup and not the text
     all_chars_to_skip = set()
@@ -706,6 +693,8 @@ def _enrich_with_tooltip(doc: Doc, html: str):
 
         # We search for the token position in the HTML
         toktext = spacy.util.escape_html(tok.text)
+        if "\n" in toktext:
+            continue
         start_pos = html.index(toktext, curr_pos)
         if start_pos == -1:
             raise RuntimeError("could not find", tok)
@@ -723,7 +712,8 @@ def _enrich_with_tooltip(doc: Doc, html: str):
                      (ann, label) for ann, label in annotations_by_tok[tok.i]]
             max_width = 7*max([len(l) for l in lines])
             new_fragment = ("<label class='tooltip'>%s" % toktext +
-                            "<span class='tooltip-text' style='width:%ipx'>%s</span></label>" % (max_width, "<br>".join(lines)))
+                            "<span class='tooltip-text' style='width:%ipx'>"%max_width +
+                            "%s</span></label>" %"<br>".join(lines))
         else:
             new_fragment = toktext
         new_fragments.append(new_fragment)

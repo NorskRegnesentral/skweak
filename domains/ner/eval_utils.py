@@ -2,13 +2,14 @@ import numpy as np
 import pandas
 import sklearn.metrics
 from skweak import utils
+from spacy.tokens import Span # type: ignore
 
 def evaluate(docs, all_labels, target_sources):
     """Extracts the evaluation results for one or more sources, and add them to a pandas DataFrame."""
     
     if isinstance(target_sources, str):
         target_sources = [target_sources]
-        
+
     records = []
     for source in target_sources:
         results = get_results(docs, all_labels, source)
@@ -124,13 +125,13 @@ def compute_raw_numbers(docs, all_labels, target_source, conf_threshold=0.5):
     tok_support = {}
 
     for doc in docs:
-        spans = utils.get_agg_spans(doc, target_source)
-        spans = [(start,end,label) for (start,end), (label, prob) in spans.items() if prob >=conf_threshold]     
+        spans = utils.get_spans_with_probs(doc, target_source)
+        spans = [span for (span, prob) in spans if prob >= conf_threshold]
             
         for label in all_labels:
             true_spans = {(ent.start, ent.end) for ent in doc.ents if ent.label_==label}
-            pred_spans = {(start,end) for (start,end, label2) in spans if label2==label}
-
+            pred_spans = {(span.start,span.end) for span in spans if span.label_==label}
+        
             ent_tp[label] = ent_tp.get(label,0) + len(true_spans.intersection(pred_spans))
             ent_fp[label] = ent_fp.get(label,0) + len(pred_spans - true_spans)
             ent_fn[label] = ent_fn.get(label,0) +  len(true_spans - pred_spans)
@@ -167,8 +168,8 @@ def _get_probs(doc, all_labels, target_source):
             gold_probs[i, out_label_indices.get("I-%s" % ent.label_, 0)] = 1
     
     pred_probs = np.zeros(gold_probs.shape)
-    if target_source in doc.user_data["agg_probs"]:       
-        for tok_pos, labels in doc.user_data["agg_probs"][target_source].items():
+    if "probs" in doc.spans[target_source].attrs:       
+        for tok_pos, labels in doc.spans[target_source].attrs["probs"].items():
             for label, label_prob in labels.items():
                 pred_probs[tok_pos, out_label_indices[label]] = label_prob
         pred_probs[:,0] = np.clip(1-pred_probs[:,1:].sum(axis=1), 0.0, 1.0)
@@ -179,17 +180,16 @@ def _get_probs(doc, all_labels, target_source):
     return gold_probs, pred_probs
 
 
-
 def show_errors(docs, all_labels, target_source, conf_threshold=0.5):
     """Utilities to display the errors/omissions of a given source"""
     
     for i, doc in enumerate(docs):
         
-        spans = utils.get_agg_spans(doc, target_source)
+        spans = utils.get_spans_with_probs(doc, target_source)
             
         print("Doc %i:"%i, doc)
         true_spans = {(ent.start, ent.end):ent.label_ for ent in doc.ents}
-        pred_spans = {(start,end):label for (start,end), (label, prob) in spans.items() if prob >=conf_threshold}
+        pred_spans = {(span.start,span.end):span.label_ for span, prob in spans if prob >=conf_threshold}
 
         for start,end in true_spans:
             if (start,end) not in pred_spans:

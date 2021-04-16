@@ -5,7 +5,7 @@ from skweak.base import SpanAnnotator
 import spacy
 import itertools
 import json
-from spacy.tokens import Doc  # type: ignore
+from spacy.tokens import Doc, Span  # type: ignore
 from typing import Tuple, Iterable, List
 
 ####################################################################
@@ -27,8 +27,8 @@ class ModelAnnotator(SpanAnnotator):
     def find_spans(self, doc: Doc) -> Iterable[Tuple[int, int, str]]:
         """Annotates one single document using the Spacy NER model"""
 
-        # Remove existing NER annotations from the document
-        doc2 = self.preprocess(doc)
+        # Create a new document (to avoid conflicting annotations)
+        doc2 = self.create_new_doc(doc)
         # And run the model
         for _, proc in self.model.pipeline:
             doc2 = proc(doc2)
@@ -37,12 +37,12 @@ class ModelAnnotator(SpanAnnotator):
             yield ent.start, ent.end, ent.label_
 
     def pipe(self, docs: Iterable[Doc]) -> Iterable[Doc]:
-        """Annotates the stream of documents based on the Spacy NER model"""
+        """Annotates the stream of documents based on the Spacy model"""
 
         stream1, stream2 = itertools.tee(docs, 2)
 
         # Remove existing entities from the document
-        stream2 = (self.preprocess(d) for d in stream2)
+        stream2 = (self.create_new_doc(d) for d in stream2)
         
         # And run the model
         for _, proc in self.model.pipeline:
@@ -50,15 +50,15 @@ class ModelAnnotator(SpanAnnotator):
         
         for doc, doc_copy in zip(stream1, stream2):
 
-            self.clear(doc)
+            doc.spans[self.name] = []
 
             # Add the annotation
             for ent in doc_copy.ents:
-                doc.user_data["spans"][self.name][(ent.start, ent.end)] = ent.label_
+                doc.spans[self.name].append(Span(doc, ent.start, ent.end, ent.label_))
 
             yield doc
 
-    def preprocess(self, doc: Doc) -> Doc:
+    def create_new_doc(self, doc: Doc) -> Doc:
         """Create a new, empty Doc (but with the same tokenisation as before)"""
 
         return spacy.tokens.Doc(self.model.vocab, [tok.text for tok in doc], #type: ignore
@@ -78,7 +78,7 @@ class TruecaseAnnotator(ModelAnnotator):
         with open(form_frequencies) as fd:
             self.form_frequencies = json.load(fd)
 
-    def preprocess(self, doc: Doc, min_prob: float = 0.25) -> Doc:
+    def create_new_doc(self, doc: Doc, min_prob: float = 0.25) -> Doc:
         """Performs truecasing of the tokens in the spacy document. Based on relative 
         frequencies of word forms, tokens that 
         (1) are made of letters, with a first letter in uppercase

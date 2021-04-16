@@ -1,6 +1,6 @@
 from skweak.base import SpanAnnotator
 import os
-from spacy.tokens import Doc
+from spacy.tokens import Doc # type: ignore
 from typing import Sequence, Tuple, Optional, Iterable
 from collections import defaultdict
 
@@ -20,16 +20,11 @@ class MBertAnnotator(SpanAnnotator):
     def __init__(self, name):
         super(MBertAnnotator, self).__init__(name)
         self.classifier = BertForSequenceClassification.from_pretrained("../data/sentiment/models/sst", num_labels=3)
-        self.classifier.eval()
+        self.classifier.eval() # type: ignore
         self.tokenizer = BertTokenizer.from_pretrained("bert-base-multilingual-uncased")
         print("Loaded mBERT from {}".format("../data/sentiment/models/sst"))
 
     def find_spans(self, doc: Doc) -> Iterable[Tuple[int, int, str]]:
-
-        if "spans" not in doc.user_data:
-            doc.user_data["spans"] = {self.name: {}}
-        else:
-            doc.user_data["spans"][self.name] = {}
 
         text = [" ".join([t.text for t in doc])]
         encoding = self.tokenizer(text, return_tensors='pt', padding=True, truncation=True)
@@ -38,13 +33,7 @@ class MBertAnnotator(SpanAnnotator):
         # so we need to get the label and transform it to an int
         _, p = output.logits.max(1)
         label = int(p[0])
-        yield 0, len(doc), label
-
-    def pipe(self, docs: Iterable[Doc]) -> Iterable[Doc]:
-        for doc in docs:
-            for bidx, eidx, label in self.find_spans(doc):
-                doc.user_data["spans"][self.name][(bidx, eidx)] = label
-            yield doc
+        yield 0, len(doc), label # type: ignore
 
 
 class MultilingualAnnotator(SpanAnnotator):
@@ -58,11 +47,6 @@ class MultilingualAnnotator(SpanAnnotator):
         print("Loaded nlptown/bert-base-multilingual-uncased-sentiment")
 
     def find_spans(self, doc: Doc) -> Iterable[Tuple[int, int, str]]:
-
-        if "spans" not in doc.user_data:
-            doc.user_data["spans"] = {self.name: {}}
-        else:
-            doc.user_data["spans"][self.name] = {}
 
         text = [" ".join([t.text for t in doc])]
         labels = self.classifier(text)[0]
@@ -78,13 +62,7 @@ class MultilingualAnnotator(SpanAnnotator):
             label = 0
         else:
             label = 1
-        yield 0, len(doc), label
-
-    def pipe(self, docs: Iterable[Doc]) -> Iterable[Doc]:
-        for doc in docs:
-            for bidx, eidx, label in self.find_spans(doc):
-                doc.user_data["spans"][self.name][(bidx, eidx)] = label
-            yield doc
+        yield 0, len(doc), label # type: ignore
 
 
 class DocBOWAnnotator(SpanAnnotator):
@@ -167,11 +145,6 @@ class DocBOWAnnotator(SpanAnnotator):
 
     def find_spans(self, doc: Doc) -> Iterable[Tuple[int, int, str]]:
 
-        if "spans" not in doc.user_data:
-            doc.user_data["spans"] = {self.name: {}}
-        else:
-            doc.user_data["spans"][self.name] = {}
-
         text = [" ".join([t.text for t in doc])]
         X = self.vectorizer.transform(text)
         pred = self.model.predict(X)[0]
@@ -186,9 +159,3 @@ class DocBOWAnnotator(SpanAnnotator):
             label = 1
         yield 0, len(doc), label
 
-    def pipe(self, docs: Iterable[Doc]) -> Iterable[Doc]:
-
-        for doc in docs:
-            for bidx, eidx, label in self.find_spans(doc):
-                doc.user_data["spans"][self.name][(bidx, eidx)] = label
-            yield doc

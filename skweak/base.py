@@ -4,7 +4,7 @@ from abc import abstractmethod
 import itertools
 from typing import Sequence, Tuple, Optional, Iterable
 from . import utils
-from spacy.tokens import Doc  # type: ignore
+from spacy.tokens import Doc, Span  # type: ignore
 
 
 ############################################
@@ -82,15 +82,15 @@ class SpanAnnotator(BaseAnnotator):
     def __call__(self, doc: Doc) -> Doc:
 
         # We start by clearing all existing annotations
-        self.clear(doc)
+        doc.spans[self.name] = []
 
-        source_annotations = doc.user_data["spans"][self.name]
         # And we look at all suggested spans
         for start, end, label in self.find_spans(doc):
 
             # We only add the span if it is compatible with other sources
             if self._is_allowed_span(doc, start, end):
-                source_annotations[(start, end)] = label
+                span = Span(doc, start, end, label)
+                doc.spans[self.name].append(span)
 
         return doc
 
@@ -101,23 +101,18 @@ class SpanAnnotator(BaseAnnotator):
 
         raise NotImplementedError("Must implement find_spans method")
 
-    def clear(self, doc: Doc):
-        """Clears existing annotation from the source in the document"""
-
-        if "spans" not in doc.user_data:
-            doc.user_data["spans"] = {self.name: {}}
-        else:
-            doc.user_data["spans"][self.name] = {}
 
     def _is_allowed_span(self, doc, start, end):
         """Checks whether the span is allowed (given incompatibilities with other sources)"""
 
-        for source in self.incompatible_sources:
-            intervals = sorted(doc.user_data["spans"].get(source, {}).keys())
+        for other_source in self.incompatible_sources:
+            
+            
+            intervals = sorted((span.start, span.end) for span in 
+                               doc.spans.get(other_source, []))
 
             # Performs a binary search to efficiently detect overlapping spans
-            start_search, end_search = utils._binary_search(
-                start, end, intervals)
+            start_search, end_search = utils._binary_search(start, end, intervals)
             for interval_start, interval_end in intervals[start_search:end_search]:
                 if start < interval_end and end > interval_start:
                     return False

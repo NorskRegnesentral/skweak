@@ -102,12 +102,12 @@ class SpanConstraintAnnotator(SpanAnnotator):
         whether they satisfy the provided constraint. If yes, adds the labelled span
         to the annotations for this source. """
 
-        if "spans" not in doc.user_data or self.other_name not in doc.user_data["spans"]:
+        if self.other_name not in doc.spans:
             return
 
-        for (start, end), label in doc.user_data["spans"][self.other_name].items():
-            if self.constraint(doc[start:end]):
-                yield start, end, (self.label or label)
+        for span in doc.spans[self.other_name]:
+            if self.constraint(span):
+                yield span.start, span.end, (self.label or span.label_)
 
 
 class SpanEditorAnnotator(SpanAnnotator):
@@ -130,14 +130,13 @@ class SpanEditorAnnotator(SpanAnnotator):
         """Loops through the spans annotated by the other source and runs the
         editor function on it. """
 
-        if "spans" not in doc.user_data or self.other_name not in doc.user_data["spans"]:
+        if self.other_name not in doc.spans:
             return
 
-        for (start, end), label in doc.user_data["spans"][self.other_name].items():
-            edited = self.editor(doc[start:end])
+        for span in doc.spans[self.other_name]:
+            edited = self.editor(span)
             if edited is not None and edited.end > edited.start:
-                label_to_produce = self.label if self.label is not None else label
-                yield edited.start, edited.end, label_to_produce
+                yield edited.start, edited.end, (self.label or span.label_)
 
 
 ####################################################################
@@ -164,18 +163,18 @@ class VicinityAnnotator(SpanAnnotator):
         """Searches for spans that have a cue word in their vicinity - and if 
         yes, tag the span with the label associated with the cue word."""
 
+        if self.other_name not in doc.spans:
+            return
+        
         # We loop on the span candidates from the other labelling source
-        for (start, end) in utils.get_spans(doc, [self.other_name]):
-
-            span = doc[start:end]
+        for span in doc.spans[self.other_name]:
 
             # Determine the boundaries of the context (based on the window)
             # NB: we do not wish to cross sentence boundaries
-            left_boundary = max(
-                span.sent.start, span.start - self.max_window//2+1)
-            right_boundary = min(span.sent.end, span.end+self.max_window//2+1)
+            left_bound = max(span.sent.start, span.start - self.max_window//2+1)
+            right_bound = min(span.sent.end, span.end+self.max_window//2+1)
 
-            for tok in doc[left_boundary:right_boundary]:
+            for tok in doc[left_bound:right_bound]:
                 for tok_form in [tok.text, tok.lower_, tok.lemma_]:
                     if tok_form in self.cue_words:
-                        yield start, end, self.cue_words[tok_form]
+                        yield span.start, span.end, self.cue_words[tok_form]

@@ -211,18 +211,17 @@ class NERAnnotator(CombinedAnnotator):
         self.add_annotator(FunctionAnnotator("money_detector", money_generator))
         
         # Detection based on casing
-        is_not_title = lambda tok: tok.text.rstrip(".") not in {"Mr", "Miss", "Mrs", "Sen", "Dr"}
-        proper_detector = TokenConstraintAnnotator("proper_detector", lambda tok: utils.is_likely_proper(tok) and is_not_title(tok), "ENT")
+        proper_detector = TokenConstraintAnnotator("proper_detector", lambda tok: utils.is_likely_proper(tok), "ENT")
     
         # Detection based on casing, but allowing some lowercased tokens
-        proper2_detector = TokenConstraintAnnotator("proper2_detector", lambda tok: utils.is_likely_proper(tok) and is_not_title(tok), "ENT")
+        proper2_detector = TokenConstraintAnnotator("proper2_detector", lambda tok: utils.is_likely_proper(tok), "ENT")
         proper2_detector.add_gap_tokens(LOWERCASED_TOKENS | NAME_PREFIXES)
         
         # Detection based on part-of-speech tags
-        nnp_detector = TokenConstraintAnnotator("nnp_detector", lambda tok: tok.tag_=="NNP" and is_not_title(tok), "ENT")
+        nnp_detector = TokenConstraintAnnotator("nnp_detector", lambda tok: tok.tag_=="NNP", "ENT")
         
         # Detection based on dependency relations (compound phrases)
-        compound = lambda tok: utils.is_likely_proper(tok) and utils.in_compound(tok) and is_not_title(tok)
+        compound = lambda tok: utils.is_likely_proper(tok) and utils.in_compound(tok)
         compound_detector = TokenConstraintAnnotator("compound_detector", compound, "ENT")
  
         exclusives = ["date_detector", "time_detector", "money_detector"]
@@ -307,27 +306,22 @@ class NERAnnotator(CombinedAnnotator):
         products_tries = extract_json_data(PRODUCTS)
         
         exclusives = ["date_detector", "time_detector", "money_detector", "number_detector"]
-        for name, tries in {"wiki":wiki_tries, "wiki_small":wiki_small_tries, #"companies":company_tries
-                            "geo":geo_tries, "crunchbase":crunchbase_tries, "products":products_tries}.items():
+        for name, tries in {"wiki":wiki_tries, "wiki_small":wiki_small_tries, "geo":geo_tries, 
+                            "crunchbase":crunchbase_tries, "products":products_tries}.items():
             
-            # For each knowledge base, we create two gazetters (one with case-sensitive 
-            # matches and one without) for each output label
-            for label, trie in tries.items():
+            # For each KB, we create two gazetters (case-sensitive or not)
+            cased_gazetteer = GazetteerAnnotator("%s_cased"%name, tries, case_sensitive=True)
+            uncased_gazetteer = GazetteerAnnotator("%s_uncased"%name, tries, case_sensitive=False)
+            cased_gazetteer.add_incompatible_sources(exclusives)
+            uncased_gazetteer.add_incompatible_sources(exclusives)
+            self.add_annotators(cased_gazetteer, uncased_gazetteer)
                 
-                # We create 
-                cased_gazetteer = GazetteerAnnotator("%s_%s_cased"%(name, label.lower()), trie, label)
-                uncased_gazetteer = GazetteerAnnotator("%s_%s_uncased"%(name, label.lower()), 
-                                                       trie, label, case_sensitive=False)
-                cased_gazetteer.add_incompatible_sources(exclusives)
-                uncased_gazetteer.add_incompatible_sources(exclusives)
-                self.add_annotators(cased_gazetteer, uncased_gazetteer)
-                
-                # We also add new sources for multitoken entities (which have higher confidence)
-                multitoken_cased = SpanConstraintAnnotator("multitoken_%s"%(cased_gazetteer.name), 
-                                                           cased_gazetteer.name, lambda s: len(s) > 1)
-                multitoken_uncased = SpanConstraintAnnotator("multitoken_%s"%(uncased_gazetteer.name), 
-                                                           uncased_gazetteer.name, lambda s: len(s) > 1)
-                self.add_annotators(multitoken_cased, multitoken_uncased)
+            # We also add new sources for multitoken entities (which have higher confidence)
+            multitoken_cased = SpanConstraintAnnotator("multitoken_%s"%(cased_gazetteer.name), 
+                                                       cased_gazetteer.name, lambda s: len(s) > 1)
+            multitoken_uncased = SpanConstraintAnnotator("multitoken_%s"%(uncased_gazetteer.name), 
+                                                         uncased_gazetteer.name, lambda s: len(s) > 1)
+            self.add_annotators(multitoken_cased, multitoken_uncased)
                 
         return self
             
@@ -342,14 +336,17 @@ class NERAnnotator(CombinedAnnotator):
         maj_voter.add_underspecified_label("ENT", {"LOCATION", "ORGANIZATION", "PERSON"})     
         self.add_annotator(maj_voter)   
            
-        self.add_annotator(DocumentHistoryAnnotator("doc_history", "doclevel_voter", ["PERSON", "ORGANIZATION"]))
+        self.add_annotator(DocumentHistoryAnnotator("doc_history_cased", "doclevel_voter", ["PERSON", "ORGANIZATION"]))
+        self.add_annotator(DocumentHistoryAnnotator("doc_history_uncased", "doclevel_voter", ["PERSON", "ORGANIZATION"],
+                                                    case_sentitive=False))
         
         maj_voter = MajorityVoter("doclevel_voter", ["LOCATION", "ORGANIZATION", "PERSON"])
         maj_voter.sources_to_avoid = ["doc_majority"]
         maj_voter.add_underspecified_label("ENT", {"LOCATION", "ORGANIZATION", "PERSON"})     
         self.add_annotator(maj_voter)   
 
-        self.add_annotator(DocumentMajorityAnnotator("doc_majority", "doclevel_voter"))
+        self.add_annotator(DocumentMajorityAnnotator("doc_majority_cased", "doclevel_voter"))
+        self.add_annotator(DocumentMajorityAnnotator("doc_majority_uncased", "doclevel_voter", case_sensitive=False))
         return self
   
 ############################################
@@ -478,16 +475,19 @@ class FullNameDetector():
         
         if span[0].text in self.first_names and span[-1].is_alpha and span[-1].is_title:
            return True
+        elif (span[0].text.endswith(".") and len(span)>1 and span[1].text in self.first_names 
+              and span[-1].is_alpha and span[-1].is_title):
+           return True
         return False
        
        
 def name_detector(span: Span) -> bool: 
     """Search for names that have a Mr/Mrs/Miss/Dr/Sen in front"""
     
-    if span.start==0 or len(span) > 5 or not span[-1].is_alpha or not span[-1].is_title:
+    if span.start==0 or len(span) > 5 or not span[-1].is_alpha or not span[-1].is_title or len(span)==1:
         return False
     
-    return span.doc[span.start-1].text.rstrip(".") in {"Mr", "Mrs", "Miss", "Dr", "Sen"}  
+    return span.doc[span.start].text.rstrip(".") in {"Mr", "Mrs", "Miss", "Dr", "Sen"}  
                     
 
 class SnipsAnnotator(SpanAnnotator):
@@ -543,15 +543,13 @@ class SnipsAnnotator(SpanAnnotator):
 def legal_generator(doc):
    
     legal_spans = []
-    for (start,end) in utils.get_spans(doc, ["proper2_detector", "nnp_detector"]):
-        if not utils.is_likely_proper(doc[end-1]):
-            continue
-                
-        span = doc[start:end].text
-        last_token = doc[end-1].text.title().rstrip("s")
+    for span in utils.get_spans(doc, ["proper2_detector", "nnp_detector"]):
+        if not utils.is_likely_proper(doc[span.end-1]):
+            continue         
+        last_token = doc[span.end-1].text.title().rstrip("s")
                   
         if last_token in LEGAL:     
-            legal_spans.append((start,end, "LAW"))
+            legal_spans.append((span.start,span.end, "LAW"))
                      
     
     # Handling legal references such as Article 5
@@ -571,33 +569,34 @@ def legal_generator(doc):
         
 
         
+        
 def misc_generator(doc):
     """Detects occurrences of countries and various less-common entities (NORP, FAC, EVENT, LANG)"""
     
-    spans = set(doc.user_data["spans"]["proper_detector"].keys())
-    spans.update((i,i+1) for i in range(len(doc)))
-    spans = sorted(spans, key=lambda x:x[0])
+    spans = set(doc.spans["proper2_detector"])
+    spans |= {doc[i:i+1] for i in range(len(doc))}
     
-    for (start,end) in spans:
+    for span in sorted(spans):
 
-        span = doc[start:end].text
-        span = span.title() if span.isupper() else span
-        last_token = doc[end-1].text
+        span_text = span.text
+        if span_text.isupper():
+            span_text = span_text.title()
+        last_token = doc[span.end-1].text
 
-        if span in COUNTRIES:
-            yield start, end, "GPE"
+        if span_text in COUNTRIES:
+            yield span.start, span.end, "GPE"
 
-        if end <= (start+3) and (span in NORPS or last_token in NORPS or last_token.rstrip("s") in NORPS):
-            yield start, end, "NORP"
+        if len(span) <= 3 and (span in NORPS or last_token in NORPS or last_token.rstrip("s") in NORPS):
+            yield span.start, span.end, "NORP"
     
-        if span in LANGUAGES and doc[start].tag_=="NNP":
-            yield start, end, "LANGUAGE"
+        if span in LANGUAGES and doc[span.start].tag_=="NNP":
+            yield span.start, span.end, "LANGUAGE"
             
-        if last_token in FACILITIES and end > start+1:
-            yield start, end, "FAC"     
+        if last_token in FACILITIES and len(span) > 1:
+            yield span.start, span.end, "FAC"     
 
-        if last_token in EVENTS and end > start+1:
-            yield start, end, "EVENT"     
+        if last_token in EVENTS  and len(span) > 1:
+            yield span.start, span.end, "EVENT"     
     
        
     
@@ -613,27 +612,41 @@ class Muc6Standardiser(SpanAnnotator):
     def __init__(self):
         super(Muc6Standardiser,self).__init__("")
         
+       
     def __call__(self, doc):
         """Annotates one single document"""     
                
-        for source in list(doc.user_data.get("spans", [])):
-            
-            spans = doc.user_data["spans"][source]
-            
-            for (start,end), label in list(spans.items()):
-                if "\n" in doc[start:end].text:
-                    del spans[(start,end)]
-                if label=="PER":
-                    spans[(start, end)] = "PERSON"
-                if label in {"ORGANISATION", "ORG", "COMPANY"}:
-                    spans[(start, end)] = "ORGANIZATION"
-                if label in {"LOC", "GPE"}:
-                    spans[(start, end)] = "LOCATION"
-                if (label in {"DATE", "TIME"} and not re.search("\\d", doc[start:end].text) 
-                    and not any(tok.text in MONTHS for tok in doc[start:end])):
-                    del spans[(start,end)]
-           #     elif label in {"EVENT", "FAC", "LANGUAGE", "LAW", "NORP", "PRODUCT", "WORK_OF_ART"}:
-           #         spans[(start, end)] = "MISC"
+        for source in doc.spans:
+               
+            new_spans = []  
+            for span in doc.spans[source]:
+
+                if (span.label_ in {"DATE", "TIME"} and not re.search("\\d", span.text) 
+                    and not any(tok.text in MONTHS for tok in span)):
+                    continue
+                elif span.label_=="PER":
+                    new_spans.append(Span(doc, span.start, span.end, label="PERSON"))
+                elif span.label_ in {"ORG", "ORGANISATION", "COMPANY"}:
+                    new_spans.append(Span(doc, span.start, span.end, label="ORGANIZATION"))
+                elif span.label_ in {"LOC", "GPE"}:
+                    new_spans.append(Span(doc, span.start, span.end, label="LOCATION"))
+     #           elif span.label_ in {"EVENT", "FAC", "LANGUAGE", "LAW", "NORP", "PRODUCT", "WORK_OF_ART"}:
+     #               new_spans.append(Span(doc, span.start, span.end, label="MISC"))
+                else:
+                    new_spans.append(span)  
                     
+            # Small fix for MUC-6, which (to the opposite of most NER corpora) does
+            # not include titles in the span for a person name            
+            new_spans2 = []
+            for span in new_spans:
+                if (span.label_ in {"ENT","PERSON"} and span[0].text.rstrip(".").lower() 
+                    in {"mr", "mrs", "miss", "dr", "sen"}):
+                    if len(span) > 1:
+                        new_spans2.append(Span(doc, span.start+1, span.end, span.label_))
+                else:
+                    new_spans2.append(span)
+                    
+            doc.spans[source] = new_spans2
+                         
         return doc
 

@@ -122,8 +122,8 @@ print("-" * 25)
 for lexicon in pred_docs[0].user_data["spans"].keys():
     pred = []
     for d in pred_docs:
-        for span, label in d.user_data["spans"][lexicon].items():
-            pred.append(label)
+        for span in d.spans[lexicon]:
+            pred.append(span.label_)
 
     lex_f1 = f1_score(gold, pred, average="macro")
     print("{0}:\t{1:.3f}".format(lexicon, lex_f1))
@@ -137,8 +137,8 @@ for lexicon in pred_docs[0].user_data["spans"].keys():
 for aggregator in ["mv", "hmm"]:
     pred = []
     for d in pred_docs:
-        for span, label in d.user_data["agg_spans"][aggregator].items():
-            pred.append(label)
+        for span in d.spans[aggregator]:
+            pred.append(span.label_)
     hmm_f1 = f1_score(gold, pred, average="macro")
     print("{0}:\t{1:.3f}".format(aggregator, hmm_f1))
 

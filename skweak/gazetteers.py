@@ -1,12 +1,9 @@
 from __future__ import annotations
 
-import numpy as np
 import json
 import re
-from skweak.utils import is_likely_proper
-from skweak import utils
 from typing import Generator, Iterable, Iterator, List, Set, Dict, Tuple, Optional, Union, Any
-from . import base
+from . import base, utils
 from spacy.tokens import Doc, Span, Token  # type: ignore
 
 
@@ -15,30 +12,14 @@ from spacy.tokens import Doc, Span, Token  # type: ignore
 ############################################
 
 
-class GazetteerAnnotators(base.CombinedAnnotator):
-    """Simple wrapper to combine several related GazetteerAnnotators"""
-
-    def __init__(self, prefix: str, tries: Dict[str, Trie]):
-        """Creates a simple combination of annotators based on a collection
-        of tries. Each gazetteer annotator is formatted as
-        [prefix]_[label]_[(un)cased]"""
-
-        super(GazetteerAnnotators, self).__init__()
-        for label, trie in tries.items():
-            self.add_annotator(GazetteerAnnotator(
-                "%s_%s_cased" % (prefix, label.lower()), trie, label))
-            self.add_annotator(GazetteerAnnotator("%s_%s_uncased" % (prefix, label.lower()), trie,
-                                                  label, case_sensitive=False))
-
 
 class GazetteerAnnotator(base.SpanAnnotator):
     """Annotation using a gazetteer, i.e. a large list of entity terms. The annotation can
     look at either case-sensitive and case-insensitive occurrences.  The annotator relies 
     on a token-level trie for efficient search. """
 
-    def __init__(self, name: str, trie: Trie, label: str,
-                 case_sensitive: bool = True, lookahead: int = 10,
-                 additional_checks: bool=True):
+    def __init__(self, name: str, tries: Dict[str, Trie], case_sensitive: bool = True, 
+                 lookahead: int = 10, additional_checks: bool=True):
         """Creates a new gazeteer, based on:
         - a trie
         - an output label associated with the tri
@@ -49,11 +30,11 @@ class GazetteerAnnotator(base.SpanAnnotator):
 
         super(GazetteerAnnotator, self).__init__(name)
 
-        self.trie = trie
-        self.label = label
+        self.tries = tries
         self.case_sensitive = case_sensitive
         self.lookahead = lookahead
         self.additional_checks = additional_checks
+        
 
     def find_spans(self, doc: Doc) -> Iterable[Tuple[int, int, str]]:
         """Search for occurrences of entity terms in the spacy document"""
@@ -70,25 +51,35 @@ class GazetteerAnnotator(base.SpanAnnotator):
             tok = doc[i]
 
             # We create a lookahead window starting at the token
-            lookahead_length = self._get_lookahead(
-                tok, next_sentence_boundaries[i])
+            lookahead_length = self._get_lookahead(tok, next_sentence_boundaries[i])
 
             if lookahead_length:
 
                 window = tokens[i:i+lookahead_length]
                 
-                # We search for the longest match
-                match = self.trie.find_longest_match(
-                    window, self.case_sensitive)
-                if match:
+                matches = []
+                # We loop on all tries (one per label)
+                for label, trie in self.tries.items():
                     
-                    # We check whether the match is valid
-                    if (not self.additional_checks or 
-                        self._is_valid_match(doc[i:i+len(match)], match)):
-                        yield i, (i+len(match)), self.label
+                    # We search for the longest match
+                    match = trie.find_longest_match(window, self.case_sensitive)
+                    if match:
+                        
+                        # We check whether the match is valid
+                        if (not self.additional_checks or 
+                            self._is_valid_match(doc[i:i+len(match)], match)):
+                            matches.append((match, label))
+                
+                # We choose the longest match(es)
+                if matches:
+                    max_length = max(len(match) for match, _ in matches)
+                    for match, label in matches:
+                        if len(match)==max_length:
+                            yield i, i+max_length, label
 
-                        # We skip the text until the end of the match
-                        i += len(match)-1
+                    # We skip the text until the end of the match
+                    i += max_length-1
+                    
             i += 1
 
     def _get_lookahead(self, token: Token, next_sentence_boundary: int) -> int:

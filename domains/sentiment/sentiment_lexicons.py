@@ -37,11 +37,6 @@ class LexiconAnnotator(SpanAnnotator):
         pos = 0
         neg = 0
 
-        if "spans" not in doc.user_data:
-            doc.user_data["spans"] = {self.name: {}}
-        else:
-            doc.user_data["spans"][self.name] = {}
-
         # Iterate through tokens and add up positive and negative tokens
         for token in doc:
             if token.text in self.pos:
@@ -59,11 +54,6 @@ class LexiconAnnotator(SpanAnnotator):
             label = 1
         yield 0, len(doc), label #type: ignore
 
-    def pipe(self, docs: Iterable[Doc]) -> Iterable[Doc]:
-        for doc in docs:
-            for bidx, eidx, label in self.find_spans(doc):
-                doc.user_data["spans"][self.name][(bidx, eidx)] = label
-            yield doc
 
 class VADAnnotator(SpanAnnotator):
     """Annotation based on a sentiment lexicon"""
@@ -83,11 +73,6 @@ class VADAnnotator(SpanAnnotator):
     def find_spans(self, doc: Doc) -> Iterable[Tuple[int, int, str]]:
         scores = [0.5]
 
-        if "spans" not in doc.user_data:
-            doc.user_data["spans"] = {self.name: {}}
-        else:
-            doc.user_data["spans"][self.name] = {}
-
         # Iterate through tokens and add up positive and negative tokens
         for token in doc:
             scores.append(self.lexicon[token.text])
@@ -103,11 +88,7 @@ class VADAnnotator(SpanAnnotator):
             label = 1
         yield 0, len(doc), label #type: ignore
 
-    def pipe(self, docs: Iterable[Doc]) -> Iterable[Doc]:
-        for doc in docs:
-            for bidx, eidx, label in self.find_spans(doc):
-                doc.user_data["spans"][self.name][(bidx, eidx)] = label
-            yield doc
+
 
 class SocalAnnotator(SpanAnnotator):
     """Annotation based on a sentiment lexicon"""
@@ -130,11 +111,6 @@ class SocalAnnotator(SpanAnnotator):
     def find_spans(self, doc: Doc) -> Iterable[Tuple[int, int, str]]:
         scores = [0]
 
-        if "spans" not in doc.user_data:
-            doc.user_data["spans"] = {self.name: {}}
-        else:
-            doc.user_data["spans"][self.name] = {}
-
         # Iterate through tokens and add up positive and negative tokens
         for token in doc:
             scores.append(self.lexicon[token.text])
@@ -150,11 +126,6 @@ class SocalAnnotator(SpanAnnotator):
             label = 1
         yield 0, len(doc), label #type: ignore
 
-    def pipe(self, docs: Iterable[Doc]) -> Iterable[Doc]:
-        for doc in docs:
-            for bidx, eidx, label in self.find_spans(doc):
-                doc.user_data["spans"][self.name][(bidx, eidx)] = label
-            yield doc
 
 class NRC_SentAnnotator(SpanAnnotator):
     """Annotation based on a sentiment lexicon"""
@@ -182,11 +153,6 @@ class NRC_SentAnnotator(SpanAnnotator):
         pos = 0
         neg = 0
 
-        if "spans" not in doc.user_data:
-            doc.user_data["spans"] = {self.name: {}}
-        else:
-            doc.user_data["spans"][self.name] = {}
-
         # Iterate through tokens and add up positive and negative tokens
         for token in doc:
             if token.text in self.pos:
@@ -204,11 +170,6 @@ class NRC_SentAnnotator(SpanAnnotator):
             label = 1
         yield 0, len(doc), label #type: ignore
 
-    def pipe(self, docs: Iterable[Doc]) -> Iterable[Doc]:
-        for doc in docs:
-            for bidx, eidx, label in self.find_spans(doc):
-                doc.user_data["spans"][self.name][(bidx, eidx)] = label
-            yield doc
 
 class BUTAnnotator(SpanAnnotator):
     """Annotation based on the heuristic"""
@@ -239,11 +200,6 @@ class BUTAnnotator(SpanAnnotator):
         pos = 0
         neg = 0
 
-        if "spans" not in doc.user_data:
-            doc.user_data["spans"] = {self.name: {}}
-        else:
-            doc.user_data["spans"][self.name] = {}
-
         # Iterate through tokens and add up positive and negative tokens
         tokens = [t.text for t in doc]
         if "men" in tokens:
@@ -263,9 +219,3 @@ class BUTAnnotator(SpanAnnotator):
         else:
             label = 1
         yield 0, len(doc), label #type: ignore
-
-    def pipe(self, docs: Iterable[Doc]) -> Iterable[Doc]:
-        for doc in docs:
-            for bidx, eidx, label in self.find_spans(doc):
-                doc.user_data["spans"][self.name][(bidx, eidx)] = label
-            yield doc

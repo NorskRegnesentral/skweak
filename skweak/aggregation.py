@@ -4,7 +4,7 @@ from abc import abstractmethod
 from typing import Iterable, List, Set, Dict, Tuple
 import numpy as np
 from .base import BaseAnnotator
-from spacy.tokens import Doc  # type: ignore
+from spacy.tokens import Doc, Span  # type: ignore
 from . import utils
 import pickle
 import hmmlearn
@@ -57,7 +57,7 @@ class BaseAggregator(BaseAnnotator):
     def __call__(self, doc: Doc) -> Doc:
         """Aggregates all weak supervision sources"""
 
-        if "spans" in doc.user_data:
+        if len(doc.spans) > 0:
 
             # Extracting the observation data
             df = self.get_observation_df(doc)
@@ -77,15 +77,11 @@ class BaseAggregator(BaseAnnotator):
                                 for span, distrib in agg_df.to_dict(orient="index").items()}
 
             # Storing the results (both as spans and with the full probs)
-            if "agg_spans" not in doc.user_data:
-                doc.user_data["agg_spans"] = {self.name: output_spans}
-            else:
-                doc.user_data["agg_spans"][self.name] = output_spans
-
-            if "agg_probs" not in doc.user_data:
-                doc.user_data["agg_probs"] = {self.name: output_probs}
-            else:
-                doc.user_data["agg_probs"][self.name] = output_probs
+            doc.spans[self.name] = [Span(doc, start, end, label=label) 
+                                    for (start, end), label in output_spans.items()]
+            doc.spans[self.name].attrs["probs"] = output_probs
+            doc.spans[self.name].attrs["aggregated"] = True
+            doc.spans[self.name].attrs["sources"] = list(df.columns)
 
         return doc
 
@@ -96,8 +92,9 @@ class BaseAggregator(BaseAnnotator):
         If prefixes was set to False, the dataframe has one row per unique spans."""
 
         # Extracting the sources to consider (and filtering out the ones to avoid)
-        sources = [source for source in doc.user_data.get("spans", [])
-                   if not any(to_avoid in source for to_avoid in self.sources_to_avoid)]
+        sources = [source for source in doc.spans if len(doc.spans[source]) > 0 
+                   and "aggregated" not in doc.spans[source].attrs
+                   and not any(to_avoid in source for to_avoid in self.sources_to_avoid)]
 
         # If the aggregation includes token-level segmentation, returns a dataframe
         # with token-level predictions
@@ -108,22 +105,22 @@ class BaseAggregator(BaseAnnotator):
         # Otherwise, returns a dataframe with span-level predictions
         else:
             # Extracts a list of unique spans (with identical boundaries)
-            unique_spans = set(
-                span for s in sources for span in doc.user_data["spans"].get(s, []))
-            unique_spans = sorted(unique_spans)
+            unique_spans = set((span.start, span.end) for s in sources for span in doc.spans[s])
+            sorted_unique_spans = sorted(unique_spans)
+            unique_spans_indices = {span:i for i, span in enumerate(sorted_unique_spans)}
 
             data = np.full((len(unique_spans), len(sources)),
                            fill_value=-1, dtype=np.int16)
 
             # Populating the array with the labels from each source
             label_indices = {l: i for i, l in enumerate(self.observed_labels)}
-            for span_index, (start, end) in enumerate(unique_spans):
-                for source_index, source in enumerate(sources):
-                    if (start, end) in doc.user_data["spans"].get(source, {}):
-                        label = doc.user_data["spans"][source][(start, end)]
-                        data[span_index, source_index] = label_indices[label]
+            
+            for source_index, source in enumerate(sources):
+                for span in doc.spans[source]:
+                    span_index = unique_spans_indices[(span.start, span.end)]
+                    data[span_index, source_index] = label_indices[span.label_]
 
-            return pandas.DataFrame(data, columns=sources, index=unique_spans)
+            return pandas.DataFrame(data, columns=sources, index=sorted_unique_spans)
 
     @abstractmethod
     def _aggregate(self, observations: pandas.DataFrame) -> pandas.DataFrame:
@@ -419,13 +416,15 @@ class HMM(hmmlearn.base._BaseHMM, BaseAggregator):
 
         return logsum  # type: ignore
 
-    def _extract_sources(self, docs: Iterable[Doc], max_number=100):
+    def _extract_sources(self, docs: Iterable[Doc], max_number=1000):
         """Extract the names of all labelling sources mentioned in the documents
         (and not included in the list of sources to avoid)"""
         sources = set()
         for i, doc in enumerate(docs):
-            for source in doc.user_data.get("spans", {}):
-                if not any([to_avoid in source for to_avoid in self.sources_to_avoid]):
+            for source in doc.spans:
+                if (len(doc.spans[source]) > 0 and 
+                    "aggregated" not in doc.spans[source].attrs and 
+                    not any([to_avoid in source for to_avoid in self.sources_to_avoid])):
                     sources.add(source)
             if i > max_number:
                 break
@@ -532,7 +531,8 @@ class HMM(hmmlearn.base._BaseHMM, BaseAggregator):
         matrix[np.arange(vector.size), vector] = True
         return matrix
 
-    def _accumulate_statistics(self, X: Dict[str, np.ndarray], framelogprob: np.ndarray, posteriors: np.ndarray, fwdlattice, bwdlattice):
+    def _accumulate_statistics(self, X: Dict[str, np.ndarray], framelogprob: np.ndarray,
+                               posteriors: np.ndarray, fwdlattice, bwdlattice):
         """Acccumulate the counts based on the sufficient statistics"""
 
         # Update the start counts
