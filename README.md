@@ -15,7 +15,7 @@ For more details on `skweak`, see our paper (...). TODO
 ## Requirements
 
 The following Python packages must be installed:
-- `spacy` >= 2.2 (both v2 or v3 should work)
+- `spacy` >= 3.0.0
 - `hmmlearn` >= 0.2.4
 - `pandas` >= 0.23
 - `numpy` >= 1.18
