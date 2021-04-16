@@ -8,6 +8,9 @@ The labelling functions may take a variety of forms, such as domain-specific heu
 
 `skweak` can be applied to both sequence labelling and text classification, and comes with a complete API that makes it possible to create, apply and aggregate labelling functions with just a few lines of code. Give it a try!
 
+
+https://user-images.githubusercontent.com/11574012/114999146-e0995300-9ea1-11eb-8288-2bb54dc043e7.mp4
+
 For more details on `skweak`, see our paper (...). TODO
 
 **Documentation & API**: See the [Wiki](https://github.com/NorskRegnesentral/skweak/wiki) for details on how to use `skweak`. 
