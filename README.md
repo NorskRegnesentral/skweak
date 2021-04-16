@@ -52,9 +52,9 @@ from skweak import heuristics, gazetteers, aggregation, utils
 
 # LF 1: heuristic to detect occurrences of MONEY entities
 def money_detector(doc):
-   for i, tok in enumerate(doc[1:]):
+   for tok in doc[1:]:
       if tok.text[0].isdigit() and tok.nbor(-1).is_currency:
-          yield (i-1,i+1, "MONEY")
+          yield tok.i-1, tok.i+1, "MONEY"
 lf1 = heuristics.FunctionAnnotator("money", money_detector)
 
 # LF 2: detection of years with a regex
@@ -63,10 +63,10 @@ lf2= heuristics.TokenConstraintAnnotator ("years", lambda tok: re.match("(19|20)
 # LF 3: a gazetteer with a few names
 NAMES = [("Barack", "Obama"), ("Donald", "Trump"), ("Joe", "Biden")]
 trie = gazetteers.Trie(NAMES)
-lf3 = gazetteers.GazetteerAnnotator("presidents", trie, "PERSON")
+lf3 = gazetteers.GazetteerAnnotator("presidents", {"PERSON":trie})
 
 # We create a corpus (here with a single text)
-nlp = spacy.load("en_core_web_md")
+nlp = spacy.load("en_core_web_sm")
 doc = nlp("Donald Trump paid $750 in federal income taxes in 2016")
 
 # apply the labelling functions
