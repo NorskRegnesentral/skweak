@@ -1,8 +1,7 @@
-from __future__ import annotations
 
 from skweak.gazetteers import GazetteerAnnotator
 from skweak import utils
-from typing import Dict, List, Set, Tuple, Iterable
+from typing import Dict, List, Tuple, Iterable
 from . import gazetteers, base
 from spacy.tokens import Doc, Span  # type: ignore
 from collections import defaultdict
@@ -40,16 +39,16 @@ class DocumentHistoryAnnotator(base.SpanAnnotator):
         for tokens, span in first_observed.items():
             tries[span.label_].add(tokens)
             first_observed_bounds.add((span.start, span.end))
-            
+
         gazetteer = GazetteerAnnotator(self.name, tries, case_sensitive=self.case_sensitive,
                                        additional_checks=False)
         for start, end, label in gazetteer.find_spans(doc):
             if (start, end) not in first_observed_bounds:
                 yield start, end, label
-                
+
         return doc
 
-    def get_first_mentions(self, doc) -> Dict[List[str],Span]:
+    def get_first_mentions(self, doc) -> Dict[List[str], Span]:
         """Returns a set containing the first mentions of each entity as triples
         (start, end, label) according to the "other_name' layer.
 
@@ -67,7 +66,7 @@ class DocumentHistoryAnnotator(base.SpanAnnotator):
 
                 # We also extract subsequences
                 for length in range(1, len(span)+1):
-                    for i in range(length,len(span)+1):
+                    for i in range(length, len(span)+1):
 
                         start2 = span.start + i-length
                         end2 = span.start + i
@@ -81,7 +80,8 @@ class DocumentHistoryAnnotator(base.SpanAnnotator):
                         # and the mention must have at least 4 characters
                         elif (any(utils.is_likely_proper(tok) for tok in doc[start2:end2])
                               and sum(len(tok) for tok in subseq) > 3):
-                            first_observed[subseq] = Span(doc, start2, end2, span.label_)
+                            first_observed[subseq] = Span(
+                                doc, start2, end2, span.label_)
 
         return first_observed
 
@@ -105,20 +105,20 @@ class DocumentMajorityAnnotator(base.SpanAnnotator):
     def find_spans(self, doc: Doc) -> Iterable[Tuple[int, int, str]]:
         """Generates span annotations for one single document based on 
         majority labels"""
-        
+
         # We search for the majority label for each entity string
         majority_labels = self.get_majority_labels(doc)
 
         # we build trie to easily search for these entities in the text
-        tries = {label: gazetteers.Trie() for label in set(majority_labels.values())}
+        tries = {label: gazetteers.Trie()
+                 for label in set(majority_labels.values())}
         for ent_tokens, label in majority_labels.items():
             tries[label].add(list(ent_tokens))
 
-        gazetteer = GazetteerAnnotator(self.name, tries, self.case_sensitive, 
+        gazetteer = GazetteerAnnotator(self.name, tries, self.case_sensitive,
                                        additional_checks=False)
         for start, end, label in gazetteer.find_spans(doc):
             yield start, end, label
-
 
     def get_majority_labels(self, doc: Doc) -> Dict[Tuple[str], str]:
         """Given a document, searches for the majority label for each entity string

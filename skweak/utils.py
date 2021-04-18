@@ -1,9 +1,8 @@
-from __future__ import annotations
 
 import json
 import re
 import functools
-from typing import List, Set, Dict, Tuple, Optional, TypeVar, Iterable
+from typing import List, Dict, Tuple, Optional, TypeVar, Iterable
 from spacy.tokens import Doc, Token, Span, DocBin  # type: ignore
 import numpy as np
 

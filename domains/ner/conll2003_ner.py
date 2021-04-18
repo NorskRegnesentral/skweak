@@ -395,8 +395,8 @@ class NERAnnotator(CombinedAnnotator):
 
         self.add_annotator(ConLL2003Standardiser())
 
-        maj_voter = MajorityVoter("doclevel_voter", ["LOC", "MISC", "ORG", "PER"])
-        maj_voter.sources_to_avoid = ["doc_history", "doc_majority"]
+        maj_voter = MajorityVoter("doclevel_voter", ["LOC", "MISC", "ORG", "PER"], 
+                                  initial_weights={"doc_history":0, "doc_majority":0})
         maj_voter.add_underspecified_label("ENT", {"LOC", "MISC", "ORG", "PER"})     
         self.add_annotator(maj_voter)   
            
@@ -404,8 +404,8 @@ class NERAnnotator(CombinedAnnotator):
         self.add_annotator(DocumentHistoryAnnotator("doc_history_uncased", "doclevel_voter", ["PER", "ORG"],
                                                     case_sentitive=False))
         
-        maj_voter = MajorityVoter("doclevel_voter", ["LOC", "MISC", "ORG", "PER"])
-        maj_voter.sources_to_avoid = ["doc_majority"]
+        maj_voter = MajorityVoter("doclevel_voter", ["LOC", "MISC", "ORG", "PER"],
+                                  initial_weights={"doc_majority":0})
         maj_voter.add_underspecified_label("ENT", {"LOC", "MISC", "ORG", "PER"})
         self.add_annotator(maj_voter)
 

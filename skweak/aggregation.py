@@ -1,9 +1,8 @@
-from __future__ import annotations
 
 from abc import abstractmethod
-from typing import Iterable, List, Set, Dict, Tuple
+from typing import Iterable, List, Set, Dict
 import numpy as np
-from .base import BaseAnnotator
+from .base import AbstractAnnotator
 from spacy.tokens import Doc, Span  # type: ignore
 from . import utils
 import pickle
@@ -20,7 +19,7 @@ warnings.simplefilter(action='ignore', category=FutureWarning)
 ####################################################################
 
 
-class BaseAggregator(BaseAnnotator):
+class BaseAggregator(AbstractAnnotator):
     """Base aggregator to combine all labelling sources into a single annotation layer"""
 
     def __init__(self, name: str, labels: List[str], sequence_labelling: bool = True,
@@ -46,9 +45,6 @@ class BaseAggregator(BaseAnnotator):
                     self.out_labels.append("%s-%s" % (prefix, label))
         else:
             self.out_labels = labels
-
-        # We may specify labelling sources to avoid
-        self.sources_to_avoid = []
 
         # We may also have "underspecified labels" that may stand for several
         # possible output labels (see below)
@@ -77,7 +73,7 @@ class BaseAggregator(BaseAnnotator):
                                 for span, distrib in agg_df.to_dict(orient="index").items()}
 
             # Storing the results (both as spans and with the full probs)
-            doc.spans[self.name] = [Span(doc, start, end, label=label) 
+            doc.spans[self.name] = [Span(doc, start, end, label=label)
                                     for (start, end), label in output_spans.items()]
             doc.spans[self.name].attrs["probs"] = output_probs
             doc.spans[self.name].attrs["aggregated"] = True
@@ -92,9 +88,8 @@ class BaseAggregator(BaseAnnotator):
         If prefixes was set to False, the dataframe has one row per unique spans."""
 
         # Extracting the sources to consider (and filtering out the ones to avoid)
-        sources = [source for source in doc.spans if len(doc.spans[source]) > 0 
-                   and "aggregated" not in doc.spans[source].attrs
-                   and not any(to_avoid in source for to_avoid in self.sources_to_avoid)]
+        sources = [source for source in doc.spans if len(doc.spans[source]) > 0
+                   and "aggregated" not in doc.spans[source].attrs]
 
         # If the aggregation includes token-level segmentation, returns a dataframe
         # with token-level predictions
@@ -105,16 +100,18 @@ class BaseAggregator(BaseAnnotator):
         # Otherwise, returns a dataframe with span-level predictions
         else:
             # Extracts a list of unique spans (with identical boundaries)
-            unique_spans = set((span.start, span.end) for s in sources for span in doc.spans[s])
+            unique_spans = set((span.start, span.end)
+                               for s in sources for span in doc.spans[s])
             sorted_unique_spans = sorted(unique_spans)
-            unique_spans_indices = {span:i for i, span in enumerate(sorted_unique_spans)}
+            unique_spans_indices = {span: i for i,
+                                    span in enumerate(sorted_unique_spans)}
 
             data = np.full((len(unique_spans), len(sources)),
                            fill_value=-1, dtype=np.int16)
 
             # Populating the array with the labels from each source
             label_indices = {l: i for i, l in enumerate(self.observed_labels)}
-            
+
             for source_index, source in enumerate(sources):
                 for span in doc.spans[source]:
                     span_index = unique_spans_indices[(span.start, span.end)]
@@ -174,19 +171,22 @@ class MajorityVoter(BaseAggregator):
     """Simple aggregator based on majority voting"""
 
     def __init__(self, name: str, labels: List[str], sequence_labelling: bool = True,
-                 prefixes: str = "BIO"):
+                 initial_weights=None, prefixes: str = "BIO"):
         """Creates a majority voter to aggregate spans. Arguments:
         - name is the aggregator name
         - labels is a list of output labels such as PERSON, ORG etc. 
         - If sequence_labelling is set to True, the labels are aggregated at the token-level
          (using IO/BIO/BILUO prefixes). Otherwise, skweak simply groups together spans with the 
           same (start,end) boundary, and aggregates their labels.
+        - initial_weights is a dictionary associating source names to numerical weights
+          in the range [0, +inf]. The default assumes weights = 1 for all functions. You
+          can disable a labelling function by giving it a weight of 0.
         - prefixes must be either 'IO', 'BIO', 'BILUO'. Ignored if sequence_labelling is False
         """
 
         super(MajorityVoter, self).__init__(
             name, labels, sequence_labelling, prefixes)
-        self.weights = {}
+        self.weights = initial_weights if initial_weights else {}
 
     def _aggregate(self, observations: pandas.DataFrame, coefficient=0.1) -> pandas.DataFrame:
         """Takes as input a 2D dataframe of shape (nb_entries, nb_sources) 
@@ -204,8 +204,8 @@ class MajorityVoter(BaseAggregator):
             if len(self.weights) == 0:
                 return np.bincount(x[x >= 0], minlength=len(self.observed_labels))
             else:
-                weights = [self.weights[source][x[i]]
-                           for i, source in enumerate(observations.columns)]
+                weights = [self.weights.get(source, 1)
+                           for source in observations.columns]
                 return np.bincount(x[x >= 0], weights=weights, minlength=len(self.observed_labels))
 
         label_votes = np.apply_along_axis(
@@ -246,7 +246,7 @@ class HMM(hmmlearn.base._BaseHMM, BaseAggregator):
     (a special case of Expectation-Maximisation)"""
 
     def __init__(self, name: str, out_labels: List[str], sequence_labelling: bool = True,
-                 prefixes: str = "BIO",  redundancy_weight=0.1):
+                 prefixes: str = "BIO",  initial_weights=None, redundancy_factor=0.1):
         """Initialises the HMM model (which must be fitted before use). 
         Arguments:
         - name is the aggregator name
@@ -255,12 +255,17 @@ class HMM(hmmlearn.base._BaseHMM, BaseAggregator):
          (using IO/BIO/BILUO prefixes). Otherwise, skweak simply groups together spans with the 
           same (start,end) boundary, and aggregates their labels.
         - prefixes must be either 'IO', 'BIO', 'BILUO'. Ignored if sequence_labelling is False
-        - redundancy weight is the strength of the correlation-based weighting of each 
-          labelling function. A value of 0.0 disables the weighting"""
+        - initial_weights is a dictionary associating source names to numerical weights
+          in the range [0, +inf]. The default assumes weights = 1 for all functions. You
+          can disable a labelling function by giving it a weight of 0.
+        - redundancy_factor is the strength of the correlation-based weighting of each 
+          labelling function. A value of 0.0 ignores redundancies"""
 
         BaseAggregator.__init__(self, name, out_labels,
                                 sequence_labelling, prefixes)
-        self.redundancy_weight = redundancy_weight
+        self.initial_weights = initial_weights if initial_weights else {}
+        self.weights = dict(self.initial_weights)
+        self.redundancy_factor = redundancy_factor
 
     def __call__(self, doc: Doc) -> Doc:
         """Aggregates all weak supervision sources (and fits the parameters if
@@ -355,9 +360,9 @@ class HMM(hmmlearn.base._BaseHMM, BaseAggregator):
                 # Compute its current log-likelihood
                 framelogprob = self._compute_log_likelihood(X)
                 # Make sure there is no token with no possible states
-                
+
                 if (np.isnan(framelogprob).any() or  # type: ignore
-                    framelogprob.max(axis=1).min() < -100000): 
+                        framelogprob.max(axis=1).min() < -100000):
                     pos = framelogprob.max(axis=1).argmin()
                     print("problem found for token", doc[pos], "in", self.name)
                     return
@@ -393,10 +398,8 @@ class HMM(hmmlearn.base._BaseHMM, BaseAggregator):
         for source in X:
 
             # Include the weights to the probabilities
-            if self.redundancy_weight:
-                probs = self.emit_probs[source] ** self.weights[source]
-            else:
-                probs = self.emit_probs[source]
+            probs = (self.emit_probs[source]  # type:ignore
+                     ** self.weights.get(source, 1))
 
             # We compute the likelihood of each state given the observations
             probs = np.dot(X[source], probs.T)
@@ -422,9 +425,8 @@ class HMM(hmmlearn.base._BaseHMM, BaseAggregator):
         sources = set()
         for i, doc in enumerate(docs):
             for source in doc.spans:
-                if (len(doc.spans[source]) > 0 and 
-                    "aggregated" not in doc.spans[source].attrs and 
-                    not any([to_avoid in source for to_avoid in self.sources_to_avoid])):
+                if (len(doc.spans[source]) > 0 and
+                        "aggregated" not in doc.spans[source].attrs):
                     sources.add(source)
             if i > max_number:
                 break
@@ -466,6 +468,9 @@ class HMM(hmmlearn.base._BaseHMM, BaseAggregator):
             self.corr_counts[(source, source2)] += 0.000001
 
     def _get_correlated_sources(self, source, all_sources):
+        """Extracts the list of possible correlated sources, according to specific
+        naming conventions. This method can be modified/replaced if need."""
+
         source2 = source.replace("_cased", "").replace("_uncased", "")
         corr_sources = []
         for other_source in all_sources:
@@ -485,14 +490,16 @@ class HMM(hmmlearn.base._BaseHMM, BaseAggregator):
         majority voters"""
 
         # We rely on an ensemble majority voter to get the first counts
-        mv = MajorityVoter("", self.out_labels, sequence_labelling=False)
+        # The weights of each source in the majority voter are based on
+        # the initial weights of the HMM, adjusted with an upper bound on
+        # the redundancy of each source
+        init_mv_weights = {source: self.initial_weights.get(source, 1) *
+                           np.exp(-self.redundancy_factor *  # type: ignore
+                                  len([s2 for s1, s2 in self.corr_counts if s1 == source]))
+                           for source in self.emit_counts}
+        mv = MajorityVoter("", self.out_labels, sequence_labelling=False,
+                           initial_weights=init_mv_weights)
         mv.underspecified_labels = self.underspecified_labels
-        mv.sources_to_avoid = self.sources_to_avoid
-
-        # Also apply weights to the majority voter
-        if self.redundancy_weight:
-            self._update_weights()
-            mv.weights = self.weights
 
         for doc in docs:
 
@@ -577,17 +584,20 @@ class HMM(hmmlearn.base._BaseHMM, BaseAggregator):
             self.emit_probs[source] = self.emit_counts[source] / normalisation
 
         # Compute weights per labelling sources
-        if self.redundancy_weight:
-            self._update_weights()
+        self._update_weights()
 
     def _update_weights(self):
         """Update the weights of each labelling function to account for correlated sources"""
 
         # We reset the weights
-        self.weights = {source: np.full(len(self.observed_labels), 1, dtype=np.float32) 
-                        for source in self.emit_counts}
+        self.weights = {}
+        for source in self.emit_counts:
+            init_weight = self.initial_weights.get(source, 1)
+            self.weights[source] = np.full(fill_value=init_weight,
+                                           shape=len(self.observed_labels),
+                                           dtype=np.float32)
 
-        # We compute a weight for each (source, observed label) pair
+        # We also take into account redundancies with other labelling functions
         for source in self.emit_counts:
             for i in range(len(self.observed_labels)):
 
@@ -600,9 +610,8 @@ class HMM(hmmlearn.base._BaseHMM, BaseAggregator):
 
                 # The weight decreases with the number of correlated labelling functions
                 # that have a high recall with the current function
-                self.weights[source][i] = 1 / np.exp(self.redundancy_weight * #type: ignore
-                                                     np.sum(recalls_with_corr_sources))
-
+                self.weights[source][i] *= np.exp(-self.redundancy_factor *  # type: ignore
+                                                  np.sum(recalls_with_corr_sources))
 
     def _postprocess_counts(self):
         """Postprocess the counts to erase invalid starts, transitions or emissions"""
@@ -632,7 +641,9 @@ class HMM(hmmlearn.base._BaseHMM, BaseAggregator):
 
         import pandas
         pandas.set_option("display.width", 1000)
-        print("HMM model on following sources:", list(self.emit_counts.keys()))
+        valid_sources = [source for source in self.emit_counts
+                         if self.initial_weights.get(source, 1) > 0]
+        print("HMM model on following sources:", valid_sources)
         print("Output labels:", self.out_labels)
         if self.underspecified_labels:
             print("Underspecified labels:", self.underspecified_labels)
@@ -645,14 +656,15 @@ class HMM(hmmlearn.base._BaseHMM, BaseAggregator):
                                columns=self.out_labels).round(nb_digits))
         print("--------")
         for source in self.emit_counts:
+            if self.initial_weights.get(source, 1) == 0.0:
+                continue
             if sources == None or source in sources:
                 print("Emission model for source: %s" % (source))
                 df = pandas.DataFrame(self.emit_probs[source], index=self.out_labels,
                                       columns=self.observed_labels)
-                if self.redundancy_weight > 0:
-                    dft = df.transpose()
-                    dft["weights"] = self.weights[source]
-                    df = dft.transpose()
+                dft = df.transpose()
+                dft["weights"] = self.weights[source]
+                df = dft.transpose()
                 print(df.round(nb_digits))
                 print("--------")
 
@@ -670,62 +682,3 @@ class HMM(hmmlearn.base._BaseHMM, BaseAggregator):
         ua = pickle.load(fd)
         fd.close()
         return ua
-
-
-# class SnorkelAggregator(BaseAggregator):
-#     """Snorkel-based model. The model first extracts a list of candidate spans
-#     from a few trustworthy sources, and then relies on the full set of sources
-#     for the classification"""
-
-#     def __init__(self, name:str, out_labels:List[str], sources:List[str]):
-#         super(SnorkelAggregator, self).__init__(name, out_labels, sources)
-#         self.sources = sources
-
-#     def train(self, docbin_file):
-#         """Trains the Snorkel model on the provided corpus"""
-
-#         import snorkel.labeling
-#         all_obs = []
-#         for doc in utils.docbin_reader(docbin_file):
-#             spans, obs = self._get_inputs(doc)
-#             all_obs.append(obs)
-#             if len(all_obs) > 5:
-#                 break
-#         all_obs = np.vstack(all_obs)
-#         self.label_model = snorkel.labeling.LabelModel(len(self.out_labels) + 1)
-#         self.label_model.fit(all_obs)
-
-
-#     def _get_inputs(self, doc):
-#         """Returns the list of spans and the associated labels for each source (-1 to abtain)"""
-
-#         spans = sorted(utils.get_spans(doc, self.sources))
-#         span_indices = {span:i for i, span in enumerate(spans)}
-#         obs = np.full((len(spans), len(self.sources)+1), -1)
-
-#         label_map = {label:i for i, label in enumerate(self.out_labels)}
-
-#         for source_index, source in enumerate(self.sources):
-#             if source in doc.user_data["spans"]:
-#                 for (start,end), label in doc.user_data["spans"][source].items():
-#                     if (start,end) in span_indices:
-#                         span_index = span_indices[(start,end)]
-#                         obs[span_index, source_index] = label_map[label]
-
-#         return spans, obs
-
-
-#     def annotate(self, doc):
-#         """Annotates the document with the Snorkel output"""
-
-#         doc.user_data["annotations"][self.source_name] = {}
-#         doc = self.specialise_annotations(doc)
-#         spans, obs = self._get_inputs(doc)
-#         predict_probs = self.label_model.predict_proba(obs)
-#         for (start,end), probs_for_span in zip(spans, predict_probs):
-#             label_index = probs_for_span.argmax()
-#             if label_index > 0:
-#                 label = LABELS[label_index-1]
-#                 prob = probs_for_span.max()
-#                 doc.user_data["annotations"][self.source_name][(start,end)] = ((label, prob),)
-#         return doc

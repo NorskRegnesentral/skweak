@@ -1,4 +1,4 @@
-from skweak.base import BaseAnnotator, CombinedAnnotator
+from skweak.base import CombinedAnnotator
 from .sentiment_lexicons import LexiconAnnotator, NRC_SentAnnotator, VADAnnotator, SocalAnnotator, BUTAnnotator
 from .sentiment_models import DocBOWAnnotator, MultilingualAnnotator, MBertAnnotator
 import os

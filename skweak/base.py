@@ -1,4 +1,3 @@
-from __future__ import annotations
 
 from abc import abstractmethod
 import itertools
@@ -8,11 +7,12 @@ from spacy.tokens import Doc, Span  # type: ignore
 
 
 ############################################
-# Base class for all annotators
+# Abstract class for all annotators
 ############################################
 
-class BaseAnnotator:
-    """Base class for all annotation sources employed for weak supervision"""
+class AbstractAnnotator:
+    """Base class for all annotation or aggregation sources 
+    employed in skweak"""
 
     def __init__(self, name: str):
         """Initialises the annotator with a name"""
@@ -61,7 +61,7 @@ class BaseAnnotator:
 # Type of annotators
 ####################################################################
 
-class SpanAnnotator(BaseAnnotator):
+class SpanAnnotator(AbstractAnnotator):
     """Generic class for the annotation of token spans"""
 
     def __init__(self, name: str):
@@ -101,18 +101,17 @@ class SpanAnnotator(BaseAnnotator):
 
         raise NotImplementedError("Must implement find_spans method")
 
-
     def _is_allowed_span(self, doc, start, end):
         """Checks whether the span is allowed (given incompatibilities with other sources)"""
 
         for other_source in self.incompatible_sources:
-            
-            
-            intervals = sorted((span.start, span.end) for span in 
+
+            intervals = sorted((span.start, span.end) for span in
                                doc.spans.get(other_source, []))
 
             # Performs a binary search to efficiently detect overlapping spans
-            start_search, end_search = utils._binary_search(start, end, intervals)
+            start_search, end_search = utils._binary_search(
+                start, end, intervals)
             for interval_start, interval_end in intervals[start_search:end_search]:
                 if start < interval_end and end > interval_start:
                     return False
@@ -124,7 +123,7 @@ class SpanAnnotator(BaseAnnotator):
 ####################################################################
 
 
-class CombinedAnnotator(BaseAnnotator):
+class CombinedAnnotator(AbstractAnnotator):
     """Annotator of entities in documents, combining several sub-annotators  """
 
     def __init__(self):
@@ -161,13 +160,13 @@ class CombinedAnnotator(BaseAnnotator):
 
             yield doc
 
-    def add_annotator(self, annotator: BaseAnnotator):
+    def add_annotator(self, annotator: AbstractAnnotator):
         """Adds an annotator to the list"""
 
         self.annotators.append(annotator)
         return self
 
-    def add_annotators(self, *annotators: BaseAnnotator):
+    def add_annotators(self, *annotators: AbstractAnnotator):
         """Adds several annotators to the list"""
 
         for annotator in annotators:

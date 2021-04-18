@@ -331,8 +331,8 @@ class NERAnnotator(CombinedAnnotator):
         
         self.add_annotator(Muc6Standardiser())
         
-        maj_voter = MajorityVoter("doclevel_voter", ["LOCATION", "ORGANIZATION", "PERSON"])
-        maj_voter.sources_to_avoid = ["doc_history", "doc_majority"]
+        maj_voter = MajorityVoter("doclevel_voter", ["LOCATION", "ORGANIZATION", "PERSON"],
+                                  initial_weights={"doc_history":0, "doc_majority":0})
         maj_voter.add_underspecified_label("ENT", {"LOCATION", "ORGANIZATION", "PERSON"})     
         self.add_annotator(maj_voter)   
            
@@ -340,8 +340,8 @@ class NERAnnotator(CombinedAnnotator):
         self.add_annotator(DocumentHistoryAnnotator("doc_history_uncased", "doclevel_voter", ["PERSON", "ORGANIZATION"],
                                                     case_sentitive=False))
         
-        maj_voter = MajorityVoter("doclevel_voter", ["LOCATION", "ORGANIZATION", "PERSON"])
-        maj_voter.sources_to_avoid = ["doc_majority"]
+        maj_voter = MajorityVoter("doclevel_voter", ["LOCATION", "ORGANIZATION", "PERSON"],
+                                  initial_weights={"doc_majority":0})
         maj_voter.add_underspecified_label("ENT", {"LOCATION", "ORGANIZATION", "PERSON"})     
         self.add_annotator(maj_voter)   
 
