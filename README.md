@@ -89,5 +89,7 @@ See the [Wiki](https://github.com/NorskRegnesentral/skweak/wiki).
 
 ## License
 
-`skweak` is released under an MIT License. The MIT License is a short and simple permissive license allowing both commercial and non-commercial use of the software. The only requirement is to preserve
-the copyright and license notices (see file [License](https://github.com/NorskRegnesentral/skweak/License)). Licensed works, modifications, and larger works may be distributed under different terms and without source code.
+`skweak` is released under an MIT License. 
+
+The MIT License is a short and simple permissive license allowing both commercial and non-commercial use of the software. The only requirement is to preserve
+the copyright and license notices (see file [License](https://github.com/NorskRegnesentral/skweak/blob/main/LICENSE.txt)). Licensed works, modifications, and larger works may be distributed under different terms and without source code.

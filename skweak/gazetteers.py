@@ -1,8 +1,6 @@
-from __future__ import annotations
-
 import json
 import re
-from typing import Generator, Iterable, Iterator, List, Set, Dict, Tuple, Optional, Union, Any
+from typing import Iterable, List, Dict, Tuple, Optional
 from . import base, utils
 from spacy.tokens import Doc, Span, Token  # type: ignore
 
@@ -18,7 +16,7 @@ class GazetteerAnnotator(base.SpanAnnotator):
     look at either case-sensitive and case-insensitive occurrences.  The annotator relies 
     on a token-level trie for efficient search. """
 
-    def __init__(self, name: str, tries: Dict[str, Trie], case_sensitive: bool = True, 
+    def __init__(self, name: str, tries: Dict[str, 'Trie'], case_sensitive: bool = True, 
                  lookahead: int = 10, additional_checks: bool=True):
         """Creates a new gazeteer, based on:
         - a trie
