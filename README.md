@@ -2,11 +2,13 @@
 
 Labelled data remains a scarce resource in many practical NLP scenarios. This is especially the case when working with resource-poor languages (or text domains), or when using task-specific labels without pre-existing datasets. The only available option is often to collect and annotate texts by hand, which is an expensive and time-consuming process. 
 
-`skweak` (pronounced `/skwi:k/`) is a Python-based software toolkit that provides a concrete solution to this problem using _weak supervision_. `skweak` is built around a very simple idea: Instead of annotating texts by hand, we define a set of _labelling functions_ to automatically label our documents, and then _aggregate_ their results to obtain a labelled version of your corpus. 
+`skweak` (pronounced `/skwi:k/`) is a Python-based software toolkit that provides a concrete solution to this problem using weak supervision. `skweak` is built around a very simple idea: Instead of annotating texts by hand, we define a set of _labelling functions_ to automatically label our documents, and then _aggregate_ their results to obtain a labelled version of our corpus. 
 
-The labelling functions may take various forms, such as domain-specific heuristics (like pattern-matching rules), gazetteers (based on dictionaries of possible entries), machine learning models, or even annotations from crowd-workers. The aggregation is done using a statistical model that automatically estimates the relative accuracy (and confusion matrices) of each labelling function by comparing their predictions with one another.
+The labelling functions may take various forms, such as domain-specific heuristics (like pattern-matching rules), gazetteers (based on dictionaries of possible entries), machine learning models, or even annotations from crowd-workers. The aggregation is done using a statistical model that automatically estimates the relative accuracy (and confusions) of each labelling function by comparing their predictions with one another.
 
 `skweak` can be applied to both sequence labelling and text classification, and comes with a complete API that makes it possible to create, apply and aggregate labelling functions with just a few lines of code. Give it a try!
+
+<br>
 
 
 https://user-images.githubusercontent.com/11574012/114999146-e0995300-9ea1-11eb-8288-2bb54dc043e7.mp4
@@ -35,13 +37,11 @@ pip install skweak
 
 or if you want to install from the repo:
 
-To install from the repo:
-
 ```shell
 pip install --user git+https://github.com/NorskRegnesentral/skweak
 ```
 
-The above installation only includes the core library (not the additional examples in `domains`).
+The above installation only includes the core library (not the additional examples in `examples`).
 
 
 ## Basic Overview
@@ -95,7 +95,7 @@ hmm.fit_and_aggregate([doc])
 utils.display_entities(doc, "hmm")
 ```
 
-Obviously, to get the most out of `skweak`, you will need more labelling functions, and a larger corpus including as many documents as possible from your domain. 
+Obviously, to get the most out of `skweak`, you will need more than three labelling functions. And, most importantly, you will need a larger corpus including as many documents as possible from your domain, so that the model can derive good estimates of the relative accuracy of each labelling function. 
 
 ## Documentation
 
