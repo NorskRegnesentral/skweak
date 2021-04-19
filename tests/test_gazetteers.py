@@ -1,5 +1,6 @@
 from skweak import gazetteers, utils
 import json
+from spacy.tokens import Span #type: ignore
 
 def test_trie1():
     trie = gazetteers.Trie()
@@ -69,22 +70,28 @@ def test_gazetteer(nlp):
     trie.add(["Donald", "Duck", "Magazine"])
     trie.add(["Apple"])
    
-    gazetteer = gazetteers.GazetteerAnnotator("test_gazetteer", trie, "ENT")
+    gazetteer = gazetteers.GazetteerAnnotator("test_gazetteer", {"ENT":trie})
     doc1 = nlp("Donald Trump is now reading Donald Duck Magazine.")
     doc2 = nlp("Donald Trump (unrelated with Donald Duck) is now reading Donald Duck Magazine.")
     doc1, doc2 = gazetteer.pipe([doc1, doc2])
-    assert utils.get_spans(doc1, ["test_gazetteer"]) == {(0,2): "ENT", (5,8):"ENT"}
-    assert utils.get_spans(doc2, ["test_gazetteer"]) == {(0,2): "ENT", (5,7): "ENT", (11, 14): "ENT"}
+    assert Span(doc1, 0, 2, "ENT") in doc1.spans["test_gazetteer"]
+    assert Span(doc1, 5, 8, "ENT") in doc1.spans["test_gazetteer"]
+    assert Span(doc2, 0, 2, "ENT") in doc2.spans["test_gazetteer"]
+    assert Span(doc2, 5, 7, "ENT") in doc2.spans["test_gazetteer"]
+    assert Span(doc2, 11, 14, "ENT") in doc2.spans["test_gazetteer"]
 
-    gazetteer = gazetteers.GazetteerAnnotator("test_gazetteer", trie, "ENT", case_sensitive=False)
+    gazetteer = gazetteers.GazetteerAnnotator("test_gazetteer", {"ENT":trie}, case_sensitive=False)
     doc1 = nlp("Donald Trump is now reading Donald Duck Magazine.")
     doc2 = nlp("Donald trump (unrelated with donald Duck) is now reading Donald Duck magazine.")
 
     doc3 = nlp("At Apple, we do not like to simply eat an apple.")
     doc1, doc2, doc3 = gazetteer.pipe([doc1, doc2, doc3])
-    assert utils.get_spans(doc1, ["test_gazetteer"]) == {(0,2): "ENT", (5,8):"ENT"}
-    assert utils.get_spans(doc2, ["test_gazetteer"]) == {(0,2): "ENT", (5,7): "ENT", (11, 14): "ENT"}
-    assert utils.get_spans(doc3, ["test_gazetteer"]) == {(1,2):"ENT"}
+    assert Span(doc1, 0, 2, "ENT") in doc1.spans["test_gazetteer"]
+    assert Span(doc1, 5, 8, "ENT") in doc1.spans["test_gazetteer"]
+    assert Span(doc2, 0, 2, "ENT") in doc2.spans["test_gazetteer"]
+    assert Span(doc2, 5, 7, "ENT") in doc2.spans["test_gazetteer"]
+    assert Span(doc2, 11, 14, "ENT") in doc2.spans["test_gazetteer"]
+    assert Span(doc3, 1, 2, "ENT") in doc3.spans["test_gazetteer"]
 
  
 def test_gazetteer2(nlp):
@@ -103,7 +110,7 @@ def test_gazetteer2(nlp):
     trie.add(["Donald", "Duck"])
     trie.add(["Donald", "Duck", "Magazine"])
     
-    gazetteer = gazetteers.GazetteerAnnotator("test_gazetteer", trie, "ENT")
+    gazetteer = gazetteers.GazetteerAnnotator("test_gazetteer", {"ENT":trie})
     doc1 = nlp("Donald Trump is now reading Donald Duck Magazine.")
     gazetteer(doc1)
     assert trie.nb_queries == 5

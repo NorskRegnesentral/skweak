@@ -1,7 +1,7 @@
 import pytest
 from skweak import utils
 import os
-
+from spacy.tokens import Span #type: ignore
 
 def test_likely_proper(nlp_small, nlp):     
     for nlpx in [nlp_small, nlp]:
@@ -49,19 +49,23 @@ def test_compound(nlp):
 def test_get_spans(nlp_small):
     
     doc = nlp_small("This is just a small test for checking that the method works correctly")
-    doc.user_data["spans"] = {"source1":{(0,2):"LABEL1", (4,5):"LABEL2"}, 
-                              "source2":{(0,1):"LABEL3", (2,6):"LABEL2"},
-                              "source4":{(0,2):"LABEL2"}}
-    doc.user_data["agg_spans"] = {"source3":{(7,9):"LABEL2", (1,4):"LABEL1"}}
-    doc.user_data["agg_probs"] = {"source3":{7:{"B-LABEL2":0.7}, 8:{"I-LABEL2":0.6}, 
-                                                    1:{"B-LABEL1":0.9}, 2:{"I-LABEL1":0.55}, 3:{"I-LABEL1":0.85}}}
-                                  
-    assert set(utils.get_spans(doc, ["source1", "source2"]).keys()) == {(0,2), (2,6)}
-    assert set(utils.get_spans(doc, ["source1", "source3"]).keys()) == {(1,4), (4,5), (7,9)}
-    assert utils.get_spans(doc, ["source1", "source4"]) == {(0,2):"LABEL2", (4,5):"LABEL2"}
-    assert set(utils.get_spans(doc, ["source2", "source3"]).keys()) == {(0,1), (2,6), (7,9)}
-    assert set(utils.get_spans(doc, ["source2", "source4"]).keys()) == {(0,2), (2,6)}
-    assert set(utils.get_spans(doc, ["source3", "source4"]).keys()) == {(1,4), (7,9)}
+    doc.spans["source1"] = [Span(doc, 0, 2, label="LABEL1"),
+                            Span(doc, 4, 5, label="LABEL2")]
+    doc.spans["source2"] = [Span(doc, 0, 1, label="LABEL3"),
+                            Span(doc, 2, 6, label="LABEL2")]
+    doc.spans["source4"] = [Span(doc, 0, 2, label="LABEL2")]
+    doc.spans["source3"] = [Span(doc, 7, 9, label="LABEL2"),
+                            Span(doc, 1, 4, label="LABEL1")]
+             
+    assert set((span.start, span.end) for span in 
+               utils.get_spans(doc, ["source1", "source2"]))  == {(0,2), (2,6)}                   
+    assert set((span.start, span.end) for span in 
+               utils.get_spans(doc, ["source1", "source3"])) == {(1,4), (4,5), (7,9)}
+    assert {(span.start, span.end):span.label_ for span in 
+            utils.get_spans(doc, ["source1", "source4"])}  == {(0,2):"LABEL2", (4,5):"LABEL2"}
+    assert set((span.start, span.end) for span in 
+               utils.get_spans(doc, ["source2", "source3"])) == {(0,1), (2,6), (7,9)}
+    
     
     
     
@@ -69,7 +73,7 @@ def test_replace_ner(nlp_small):
     doc = nlp_small("Pierre Lison is working at the Norwegian Computing Center.")
     assert doc.ents[0].text=="Pierre Lison"
     assert doc.ents[0].label_=="PERSON"
-    doc.user_data["spans"] = {"test":{(6, 9):"RESEARCH_ORG"}}
+    doc.spans["test"] = [Span(doc, 6, 9, label="RESEARCH_ORG")]
     doc = utils.replace_ner_spans(doc, "test")
     assert doc.ents[0].text=="Norwegian Computing Center"
     assert doc.ents[0].label_=="RESEARCH_ORG"
@@ -78,7 +82,7 @@ def test_replace_ner(nlp_small):
 def test_docbins(nlp_small, temp_file="data/temporary_test.docbin"):
     doc = nlp_small("Pierre Lison is working at the Norwegian Computing Center.")
     doc2 = nlp_small("He is working on various NLP topics.")
-    doc.user_data["spans"] = {"test":{(0,2):"PERSON"}}
+    doc.spans["test"] = [Span(doc, 0, 2, label="PERSON")]
     utils.docbin_writer([doc, doc2], temp_file)
     doc3, doc4 = list(utils.docbin_reader(temp_file, "en_core_web_sm"))
     assert doc.text == doc3.text 
@@ -96,8 +100,8 @@ def test_json(nlp_small, temp_file="data/temporary_test.json"):
     
     doc = nlp_small("Pierre Lison is working at the Norwegian Computing Center.")
     doc2 = nlp_small("He is working on various NLP topics.")
-    doc.user_data["spans"] = {"test":{(6, 9):"RESEARCH_ORG"}}
-    doc2.user_data["spans"] = {"test":{}}
+    doc.spans["test"] = [Span(doc, 6, 9, label="RESEARCH_ORG")]
+    doc2.spans["test"] = []
     
     utils.json_writer([doc, doc2], temp_file, source="test")
     fd = open(temp_file, "r")
