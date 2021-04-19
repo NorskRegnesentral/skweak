@@ -3,7 +3,7 @@ import re
 from typing import Iterable, List, Dict, Tuple, Optional
 from . import base, utils
 from spacy.tokens import Doc, Span, Token  # type: ignore
-
+import gzip
 
 ############################################
 # Gazetteer annotator
@@ -285,38 +285,43 @@ def extract_json_data(json_file: str, cutoff: Optional[int] = None,
     print("Extracting data from", json_file)
     tries = {}
     tokeniser = None
-    with open(json_file) as fd:
-        data = json.load(fd)
+    if json_file.endswith(".gz"):
+        fd = gzip.open(json_file, "rt")
+    else:
+        fd = open(json_file)
+    
+    data = json.load(fd)
 
-        for neClass, names in data.items():
+    for neClass, names in data.items():
 
-            remaining = []
-            if cutoff is not None:
-                names = names[:cutoff]
-            print("Populating trie for class %s (number: %i)" %
-                  (neClass, len(names)))
+        remaining = []
+        if cutoff is not None:
+            names = names[:cutoff]
+        print("Populating trie for class %s (number: %i)" %
+                (neClass, len(names)))
 
-            trie = Trie()
-            for name in names:
-                if type(name) == str:
-                    tokens = name.split(" ")
+        trie = Trie()
+        for name in names:
+            if type(name) == str:
+                tokens = name.split(" ")
 
-                    # If the tokens contain special characters, we need to run spacy to
-                    # ensure we get the same tokenisation as in spacy-tokenised texts
-                    if any(tok for tok in tokens if not tok.isalpha()
-                           and not tok.isnumeric() and not re.match("[A-Z]\\.$", tok)):
-                        import spacy
-                        tokeniser = tokeniser or spacy.load(
-                            spacy_model).tokenizer
-                        tokens = [t.text for t in tokeniser(name)]
+                # If the tokens contain special characters, we need to run spacy to
+                # ensure we get the same tokenisation as in spacy-tokenised texts
+                if any(tok for tok in tokens if not tok.isalpha()
+                        and not tok.isnumeric() and not re.match("[A-Z]\\.$", tok)):
+                    import spacy
+                    tokeniser = tokeniser or spacy.load(
+                        spacy_model).tokenizer
+                    tokens = [t.text for t in tokeniser(name)]
 
-                    if len(tokens) > 0:
-                        trie.add(tokens)
+                if len(tokens) > 0:
+                    trie.add(tokens)
 
-                # If the items are already tokenised, we can load the trie faster
-                elif type(name) == list:
-                    if len(name) > 0:
-                        trie.add(name)
+            # If the items are already tokenised, we can load the trie faster
+            elif type(name) == list:
+                if len(name) > 0:
+                    trie.add(name)
 
-            tries[neClass] = trie
+        tries[neClass] = trie
+    fd.close()
     return tries

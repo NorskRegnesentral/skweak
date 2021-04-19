@@ -444,7 +444,7 @@ class HMM(hmmlearn.base._BaseHMM, BaseAggregator):
 
         return sources
 
-    def _reset_counts(self, sources, fp_prior=0.1, fn_prior=0.3, concentration=10):
+    def _reset_counts(self, sources, fp_prior=0.1, fn_prior=0.3, concentration=1):
         """Reset the various counts/statistics used for for the M-steps, and also
         adds uninformed priors for the start, transition and emission counts"""
 
