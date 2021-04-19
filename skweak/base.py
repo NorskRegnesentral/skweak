@@ -50,7 +50,7 @@ class AbstractAnnotator:
         new_docs = []
         for doc in self.pipe(docs):
             new_docs.append(doc)
-            if len(new_docs) % 1 == 0:
+            if len(new_docs) % 1000 == 0:
                 print("Number of processed documents:", len(new_docs))
 
         docbin_output_path = docbin_output_path or docbin_input_path

@@ -1,6 +1,8 @@
 
-from .conll2003_ner import (WIKIDATA, WIKIDATA_SMALL, CRUNCHBASE, PRODUCTS, GEONAMES, 
-                             LEGAL_SUFFIXES, COUNTRIES, GENERIC_TOKENS, COMPANY_NAMES)
+from .conll2003_ner import (WIKIDATA, WIKIDATA_SMALL, CRUNCHBASE, PRODUCTS, 
+                            GEONAMES, COMPANY_NAMES)
+
+from . import data_utils
 import pickle, re, json
 import spacy
 
@@ -107,7 +109,7 @@ def get_alternative_company_names(name, vocab=None):
                 continue
                 
             # We add an alternative name without the legal suffix
-            if tokens[-1].lower().rstrip(".") in LEGAL_SUFFIXES: 
+            if tokens[-1].lower().rstrip(".") in data_utils.LEGAL_SUFFIXES: 
                 alternatives.add(" ".join(tokens[:-1]))
             
             if tokens[-1].lower() in {"limited", "corporation"}:
@@ -120,7 +122,7 @@ def get_alternative_company_names(name, vocab=None):
                     alternatives.add(alternative+".")
                 
             # If the last token is a country name (like The SAS Group Norway), add an alternative without
-            if tokens[-1] in COUNTRIES:
+            if tokens[-1] in data_utils.COUNTRIES:
                 alternatives.add(" ".join(tokens[:-1])) 
                 
             # If the name starts with a the, add an alternative without it
@@ -128,14 +130,14 @@ def get_alternative_company_names(name, vocab=None):
                 alternatives.add(" ".join(tokens[1:]))
                 
             # If the name ends with a generic token such as "Telenor International", add an alternative without
-            if vocab is not None and tokens[-1] in GENERIC_TOKENS and any([tok for tok in tokens if vocab[tok].rank==0]):
+            if vocab is not None and tokens[-1] in data_utils.GENERIC_TOKENS and any([tok for tok in tokens if vocab[tok].rank==0]):
                 alternatives.add(" ".join(tokens[:-1])) 
                     
         if len(alternatives)==current_nb_alternatives:
             break
     
     # We require the alternatives to have at least 2 characters (4 characters if the name does not look like an acronym)
-    alternatives = {alt for alt in alternatives if len(alt) > 1 and alt.lower().rstrip(".") not in LEGAL_SUFFIXES} 
+    alternatives = {alt for alt in alternatives if len(alt) > 1 and alt.lower().rstrip(".") not in data_utils.LEGAL_SUFFIXES} 
     alternatives = {alt for alt in alternatives if len(alt) > 3 or alt.isupper()}
     
     return alternatives
@@ -198,7 +200,7 @@ def compile_geographical_data(geo_source="../data/allCountries.txt", population_
         if i%10000==0:
             print("Number of processed lines:", i, "and number of extracted locations:", len(names))
     fd.close()
-    names = {alt for alt in names if len(alt) > 2 and alt.lower().rstrip(".") not in LEGAL_SUFFIXES}
+    names = {alt for alt in names if len(alt) > 2 and alt.lower().rstrip(".") not in data_utils.LEGAL_SUFFIXES}
     fd = open(GEONAMES, "w")
     json.dump({"GPE":sorted(names)}, fd)
     fd.close()
@@ -245,7 +247,7 @@ def compile_crunchbase_data(org_data="../data/organizations.csv", people_data=".
         persons.update(alternatives)
         
     # We require person names to have at least 3 characters (and not be a suffix)
-    persons = {alt for alt in persons if len(alt) > 2 and alt.lower().rstrip(".") not in LEGAL_SUFFIXES}
+    persons = {alt for alt in persons if len(alt) > 2 and alt.lower().rstrip(".") not in data_utils.LEGAL_SUFFIXES}
     fd.close()
     print("Number of extracted entities: %i person names"%(len(persons)))
    
