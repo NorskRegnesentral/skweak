@@ -20,11 +20,11 @@ class GazetteerAnnotator(base.SpanAnnotator):
                  lookahead: int = 10, additional_checks: bool=True):
         """Creates a new gazeteer, based on:
         - a trie
-        - an output label associated with the tri
+        - an output label associated with the trie
         - a flag indicating whether the gazetteer should be case-sensitive or not
         - the maximum size of the lookahead window
         - a flag indicating whether to do additional checks to reduce the 
-          number of false positives"""
+          number of false positives when searching for named entities"""
 
         super(GazetteerAnnotator, self).__init__(name)
 

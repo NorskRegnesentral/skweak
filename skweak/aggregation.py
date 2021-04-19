@@ -102,21 +102,29 @@ class BaseAggregator(AbstractAnnotator):
             # Extracts a list of unique spans (with identical boundaries)
             unique_spans = set((span.start, span.end)
                                for s in sources for span in doc.spans[s])
-            sorted_unique_spans = sorted(unique_spans)
-            unique_spans_indices = {span: i for i,
-                                    span in enumerate(sorted_unique_spans)}
+            sorted_spans = sorted(unique_spans)
+            spans_indices = {span: i for i, span in enumerate(sorted_spans)}
 
             data = np.full((len(unique_spans), len(sources)),
-                           fill_value=-1, dtype=np.int16)
+                           fill_value=0, dtype=np.int16)
 
             # Populating the array with the labels from each source
             label_indices = {l: i for i, l in enumerate(self.observed_labels)}
 
             for source_index, source in enumerate(sources):
                 for span in doc.spans[source]:
-                    span_index = unique_spans_indices[(span.start, span.end)]
-                    data[span_index, source_index] = label_indices[span.label_]
+                    if span.label_ in self.observed_labels:
+                        span_index = spans_indices[(span.start, span.end)]
+                        data[span_index, source_index] = label_indices[span.label_]
 
+            # We only consider spans with at least one concrete prediction
+            masking = np.full(len(unique_spans), fill_value=True, dtype=bool)
+            for i, row in enumerate(data):
+                if row.max() <= 0 or row[row>0].min() > len(self.out_labels):
+                    masking[i] = False
+            data = data[masking]
+
+            sorted_unique_spans = [span for i, span in enumerate(sorted_spans) if masking[i]]
             return pandas.DataFrame(data, columns=sources, index=sorted_unique_spans)
 
     @abstractmethod
@@ -152,7 +160,10 @@ class BaseAggregator(AbstractAnnotator):
         """Returns the possible labels that can be observed in labelling sources
         (that is, either "concrete" output labels or underspecified labels)."""
 
-        return self.out_labels + list(self.underspecified_labels.keys())
+        observed = ["O"] if "O" not in self.out_labels else []
+        observed += self.out_labels
+        observed += sorted(self.underspecified_labels.keys())
+        return observed
 
     def get_underspecification_matrix(self) -> np.ndarray:
         """Creates a boolean matrix of shape (nb_underspecified_labels, nb_out_labels)
@@ -161,7 +172,7 @@ class BaseAggregator(AbstractAnnotator):
 
         matrix = np.zeros((len(self.underspecified_labels),
                            len(self.out_labels)), dtype=bool)
-        for i, underspec_label in enumerate(self.underspecified_labels):
+        for i, underspec_label in enumerate(sorted(self.underspecified_labels)):
             for satisfied_label in self.underspecified_labels[underspec_label]:
                 matrix[i, self.out_labels.index(satisfied_label)] = True
         return matrix
@@ -188,7 +199,7 @@ class MajorityVoter(BaseAggregator):
             name, labels, sequence_labelling, prefixes)
         self.weights = initial_weights if initial_weights else {}
 
-    def _aggregate(self, observations: pandas.DataFrame, coefficient=0.1) -> pandas.DataFrame:
+    def _aggregate(self, obs: pandas.DataFrame, coefficient=0.1) -> pandas.DataFrame:
         """Takes as input a 2D dataframe of shape (nb_entries, nb_sources) 
         associating each token/span to a set of observations from labelling 
         sources, and returns a 2D dataframe of shape (nb_entries, nb_labels)
@@ -201,15 +212,15 @@ class MajorityVoter(BaseAggregator):
 
         # We count the votes for each label on all sources
         def count_function(x):
-            if len(self.weights) == 0:
-                return np.bincount(x[x >= 0], minlength=len(self.observed_labels))
-            else:
-                weights = [self.weights.get(source, 1)
-                           for source in observations.columns]
-                return np.bincount(x[x >= 0], weights=weights, minlength=len(self.observed_labels))
+            # For sequence-labelling, we count the frequency of "O" labels (since "O"
+            # is one possible output), but we can ignore it for classification
+            min_val = 0 if "O" in self.out_labels else 1
+            nb_obs_to_count = len(self.observed_labels)-min_val
+            
+            weights = [self.weights.get(source, 1) for source in obs.columns[x>=min_val]]
+            return np.bincount(x[x>=min_val]-min_val, weights=weights, minlength=nb_obs_to_count) 
 
-        label_votes = np.apply_along_axis(
-            count_function, 1, observations.values)
+        label_votes = np.apply_along_axis(count_function, 1, obs.values)
 
         # For token-level segmentation (with a special O label), the number of "O" predictions
         # is typically much higher than any other predictions (since many labelling
@@ -219,8 +230,8 @@ class MajorityVoter(BaseAggregator):
             label_votes = label_votes.astype(np.float32)
             min_max = ((label_votes[:, 0] - label_votes[:, 0].min()) /
                        (label_votes[:, 0].max() - label_votes[:, 0].min() + 1E-20))
-            label_votes[:, 0] = (
-                min_max * len(observations.columns) * coefficient) + 1E-20
+            label_votes[:, 0] = (min_max * len(obs.columns) * coefficient) + 1E-20
+            
 
         # We start by counting only "concrete" (not-underspecified) labels
         out_label_votes = label_votes[:, :len(self.out_labels)]
@@ -235,8 +246,7 @@ class MajorityVoter(BaseAggregator):
         # Normalisation
         total = np.expand_dims(out_label_votes.sum(axis=1), axis=1)
         probs = out_label_votes / total
-        df = pandas.DataFrame(
-            probs, index=observations.index, columns=self.out_labels)
+        df = pandas.DataFrame(probs, index=obs.index, columns=self.out_labels)
         return df
 
 
@@ -281,15 +291,10 @@ class HMM(hmmlearn.base._BaseHMM, BaseAggregator):
         then applies the resulting model to aggregate the outputs of the
         labelling functions."""
 
-        docs = list(docs)
-        _, docbin_file = tempfile.mkstemp(suffix=".docbin")
-        utils.docbin_writer(docs, docbin_file)
-        self.fit(docbin_file)
-        os.remove(docbin_file)
-
+        self.fit(list(docs))
         return list(self.pipe(docs))
 
-    def _aggregate(self, observations: pandas.DataFrame) -> pandas.DataFrame:
+    def _aggregate(self, obs: pandas.DataFrame) -> pandas.DataFrame:
         """Takes as input a 2D dataframe of shape (nb_entries, nb_sources) 
         associating each token/span to a set of observations from labelling 
         sources, and returns a 2D dataframe of shape (nb_entries, nb_labels)
@@ -303,8 +308,7 @@ class HMM(hmmlearn.base._BaseHMM, BaseAggregator):
             raise RuntimeError("Model is not yet trained")
 
         # Convert the observations to one-hot representations
-        X = {src: self._to_one_hot(
-            observations[src].values) for src in observations.columns}
+        X = {src: self._to_one_hot(obs[src].values) for src in obs.columns}
 
         # Compute the log likelihoods for each states
         framelogprob = self._compute_log_likelihood(X)
@@ -319,17 +323,23 @@ class HMM(hmmlearn.base._BaseHMM, BaseAggregator):
         posteriors = posteriors / \
             posteriors.sum(axis=1)[:, np.newaxis]  # type: ignore
 
-        return pandas.DataFrame(posteriors, columns=self.out_labels, index=observations.index)
+        return pandas.DataFrame(posteriors, columns=self.out_labels, index=obs.index)
 
-    def fit(self, docbin_file: str, cutoff: int = None, n_iter=4, tol=1e-2, cutoff_for_init=2000):
-        """Train the HMM annotator based on the docbin file"""
+    def fit(self, docs: Iterable[Doc], cutoff: int = None, n_iter=4, tol=1e-2):
+        """Train the HMM annotator based on a collection of documents 
+        (which must have already been annotated using labelling functions)"""
 
-        # We extract the docs from the file
-        docs = list(utils.docbin_reader(docbin_file, cutoff=cutoff_for_init))
+        # We extract the docs
+        if cutoff is None:
+            docs = list(docs)
+        else:
+            docs = [doc for i, doc in enumerate(docs) if i <=cutoff]
 
         # We extract all source names
         sources = self._extract_sources(docs)
-
+        if len(sources)== 0:
+            raise RuntimeError("No document found with annotations")
+        
         # Create uninformed priors to start with
         self._reset_counts(sources)
 
@@ -345,10 +355,9 @@ class HMM(hmmlearn.base._BaseHMM, BaseAggregator):
             print("Starting iteration", (iter+1))
             curr_logprob = 0
             self._reset_counts(sources)
-            nb_docs = 0
 
             # We loop on all documents at each iteration
-            for doc in utils.docbin_reader(docbin_file, cutoff=cutoff):
+            for doc_i, doc in enumerate(docs):
 
                 # Transform the document annotations into observations
                 obs = self.get_observation_df(doc)
@@ -376,11 +385,10 @@ class HMM(hmmlearn.base._BaseHMM, BaseAggregator):
                 # We accumulate the statistics in the counts
                 self._accumulate_statistics(
                     X, framelogprob, posteriors, fwdlattice, bwdlattice)
-                nb_docs += 1
 
-                if nb_docs % 1000 == 0:
-                    print("Number of processed documents:", nb_docs)
-            print("Finished E-step with %i documents" % nb_docs)
+                if doc_i > 0 and doc_i % 1000 == 0:
+                    print("Number of processed documents:", doc_i)
+            print("Finished E-step with %i documents" % len(docs))
 
             # XXX must be before convergence check, because otherwise
             #     there won't be any updates for the case ``n_iter=1``.
@@ -414,7 +422,10 @@ class HMM(hmmlearn.base._BaseHMM, BaseAggregator):
         X_all_obs = np.zeros(logsum.shape, dtype=bool)  # type: ignore
         for source in self.emit_counts:
             if source in X:
-                X_all_obs += X[source][:, :len(self.out_labels)]
+                if "O" in self.out_labels:
+                    X_all_obs += X[source][:, :len(self.out_labels)]
+                else:
+                    X_all_obs += X[source][:, 1:len(self.out_labels)+1]
         logsum = np.where(X_all_obs, logsum, -np.inf)
 
         return logsum  # type: ignore
@@ -433,7 +444,7 @@ class HMM(hmmlearn.base._BaseHMM, BaseAggregator):
 
         return sources
 
-    def _reset_counts(self, sources, fp_prior=0.1, fn_prior=0.3):
+    def _reset_counts(self, sources, fp_prior=0.1, fn_prior=0.3, concentration=10):
         """Reset the various counts/statistics used for for the M-steps, and also
         adds uninformed priors for the start, transition and emission counts"""
 
@@ -447,24 +458,27 @@ class HMM(hmmlearn.base._BaseHMM, BaseAggregator):
             shape=(nb_labels, nb_obs)) for source in sources}
 
         self.corr_counts = {}
-        for source in sources:
-            for source2 in self._get_correlated_sources(source, sources):
-                self.corr_counts[(source, source2)] = np.zeros(
-                    shape=(nb_obs, nb_obs))
+        for src1 in sources:
+            for src2 in self._get_correlated_sources(src1, sources):
+                self.corr_counts[(src1, src2)] = np.zeros(shape=(nb_obs, nb_obs))
 
         # We add some prior values
-        self.start_counts += 1.000001
-        self.trans_counts += 1.000001
+        self.start_counts += concentration + 1E-10
+        self.trans_counts += concentration + 1E-10
         for source in sources:
-            self.emit_counts[source][:, :nb_labels] = np.eye(nb_labels)
-            self.emit_counts[source][:, 0] += fn_prior
-            self.emit_counts[source][0, :] += fp_prior
+            if "O" in self.out_labels:
+                self.emit_counts[source][:, :nb_labels] = np.eye(nb_labels)  * concentration
+                self.emit_counts[source][0, :] += fp_prior * concentration
+            else:
+                self.emit_counts[source][:, 1:nb_labels+1] = np.eye(nb_labels)  * concentration
+            self.emit_counts[source][:, 0] += fn_prior * concentration
             self.emit_counts[source] += 0.000001
+                
 
         for source, source2 in self.corr_counts:
-            self.corr_counts[(source, source2)] = np.eye(nb_obs)
-            self.corr_counts[(source, source2)][:, 0] += fn_prior
-            self.corr_counts[(source, source2)][0, :] += fp_prior
+            self.corr_counts[(source, source2)] = np.eye(nb_obs)  * concentration
+            self.corr_counts[(source, source2)][:, 0] += fn_prior * concentration
+            self.corr_counts[(source, source2)][0, :] += fp_prior * concentration
             self.corr_counts[(source, source2)] += 0.000001
 
     def _get_correlated_sources(self, source, all_sources):
@@ -636,35 +650,39 @@ class HMM(hmmlearn.base._BaseHMM, BaseAggregator):
                 self.get_underspecification_matrix().T
             emit_counts[:, len(self.out_labels):] = new_counts
 
-    def pretty_print(self, sources=None, nb_digits=2):
+    def pretty_print(self, sources=None, nb_digits=2, show_counts=False):
         """Prints out a summary of the HMM models"""
 
         import pandas
         pandas.set_option("display.width", 1000)
         valid_sources = [source for source in self.emit_counts
                          if self.initial_weights.get(source, 1) > 0]
-        print("HMM model on following sources:", valid_sources)
+        print("HMM model with labelling functions:", valid_sources)
         print("Output labels:", self.out_labels)
         if self.underspecified_labels:
             print("Underspecified labels:", self.underspecified_labels)
         print("--------")
-        print("Start distribution:")
-        print(pandas.Series(self.startprob_, index=self.out_labels).round(nb_digits))
-        print("--------")
-        print("Transition model:")
-        print(pandas.DataFrame(self.transmat_, index=self.out_labels,
+        if hasattr(self, "startprob_"):
+            print("Start distribution:")
+            print(pandas.Series(self.startprob_, index=self.out_labels).round(nb_digits))
+            print("--------")
+        if hasattr(self, "transmat_"):
+            print("Transition model:")
+            print(pandas.DataFrame(self.transmat_, index=self.out_labels,
                                columns=self.out_labels).round(nb_digits))
-        print("--------")
-        for source in self.emit_counts:
+            print("--------")
+        for source in sorted(self.emit_counts):
             if self.initial_weights.get(source, 1) == 0.0:
                 continue
             if sources == None or source in sources:
-                print("Emission model for source: %s" % (source))
-                df = pandas.DataFrame(self.emit_probs[source], index=self.out_labels,
+                print("Emission model for: %s" % (source))
+                vals = (self.emit_counts if show_counts else self.emit_probs)[source]
+                df = pandas.DataFrame(vals, index=self.out_labels,
                                       columns=self.observed_labels)
-                dft = df.transpose()
-                dft["weights"] = self.weights[source]
-                df = dft.transpose()
+                if self.weights:
+                    dft = df.transpose()
+                    dft["weights"] = self.weights[source]
+                    df = dft.transpose()
                 print(df.round(nb_digits))
                 print("--------")
 

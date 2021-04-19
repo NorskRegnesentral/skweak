@@ -562,13 +562,13 @@ class SnipsAnnotator(SpanAnnotator):
         results = self.parser.parse(text)
         for result in results:
             span = doc.char_span(result["range"]["start"], result["range"]["end"])
-            if span is None or span.lower_ in {"now"} or span.text in {"may"}:
+            if span is None or span.text.lower() in {"now"} or span.text in {"may"}:
                 continue
             label = None
-            if (result["entity_kind"] == "snips/number" and span.lower_ not in
+            if (result["entity_kind"] == "snips/number" and span.text.lower() not in
                     {"one", "some", "few", "many", "several"}):
                 label = "CARDINAL"
-            elif (result["entity_kind"] == "snips/ordinal" and span.lower_ not in
+            elif (result["entity_kind"] == "snips/ordinal" and span.text.lower() not in
                   {"first", "second", "the first", "the second"}):
                 label = "ORDINAL"
             elif result["entity_kind"] == "snips/temperature":

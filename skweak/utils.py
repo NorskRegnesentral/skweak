@@ -184,7 +184,7 @@ def docbin_writer(docs: Iterable[Doc], docbin_output_path: str):
     attrs = [spacy.attrs.LEMMA, spacy.attrs.TAG, spacy.attrs.DEP, spacy.attrs.HEAD,
              spacy.attrs.ENT_IOB, spacy.attrs.ENT_TYPE]
     docbin = DocBin(attrs=attrs, store_user_data=True)
-
+    
     # Storing the documents in the DocBin repository
     for doc in docs:
         doc.cats = {}
@@ -615,9 +615,9 @@ def is_valid_transition(prefix_label1, prefix_label2, encoding="BIO"):
 def display_entities(doc: Doc, layer=None, add_tooltip=True):
     """Display the entities annotated in a spacy document, based on the
     provided annotation layer(s). If layer is None, the method displays
-    the entities from Spacy.
+    the entities from Spacy. 
+    This method will only work in a Jupyter Notebook or similar. 
     """
-
     import spacy.displacy
     import IPython.core.display
     if layer is None:

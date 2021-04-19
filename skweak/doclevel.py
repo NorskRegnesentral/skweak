@@ -17,7 +17,7 @@ class DocumentHistoryAnnotator(base.SpanAnnotator):
     """
 
     def __init__(self, basename: str, other_name: str, labels: List[str],
-                 case_sentitive=False):
+                 case_sentitive=True):
         """Creates a new annotator looking at the global document context, based on another 
         annotation layer (typically a layer aggregating existing annotations). Only the 
         labels specified in the argument will be taken into account."""
@@ -41,7 +41,7 @@ class DocumentHistoryAnnotator(base.SpanAnnotator):
             first_observed_bounds.add((span.start, span.end))
 
         gazetteer = GazetteerAnnotator(self.name, tries, case_sensitive=self.case_sensitive,
-                                       additional_checks=False)
+                                       additional_checks=not self.case_sensitive)
         for start, end, label in gazetteer.find_spans(doc):
             if (start, end) not in first_observed_bounds:
                 yield start, end, label
@@ -76,12 +76,17 @@ class DocumentHistoryAnnotator(base.SpanAnnotator):
                         if subseq in first_observed:
                             continue
 
-                        # To avoid FPs, at least one token must look like a proper name,
-                        # and the mention must have at least 4 characters
-                        elif (any(utils.is_likely_proper(tok) for tok in doc[start2:end2])
-                              and sum(len(tok) for tok in subseq) > 3):
-                            first_observed[subseq] = Span(
-                                doc, start2, end2, span.label_)
+                        # To avoid too many FPs, the mention must have at least 4 charactes
+                        if sum(len(tok) for tok in subseq) <4:
+                            continue
+                        
+                        # And if the span looks like a proper name, then at least one 
+                        # token in the subsequence must look like a proper name too 
+                        elif (any(utils.is_likely_proper(tok) for tok in span) and
+                              not any(utils.is_likely_proper(tok) for tok in doc[start2:end2])):
+                            continue
+                        
+                        first_observed[subseq] = Span(doc, start2, end2, span.label_)
 
         return first_observed
 
@@ -93,7 +98,7 @@ class DocumentMajorityAnnotator(base.SpanAnnotator):
     occurrences.
     """
 
-    def __init__(self, basename: str, other_name: str, case_sensitive=False):
+    def __init__(self, basename: str, other_name: str, case_sensitive=True):
         """Creates a new annotator that looks at (often aggregated) annotations from
         another layer, and annotates entities based on their majority label elsewhere
         in the document. """
@@ -116,7 +121,7 @@ class DocumentMajorityAnnotator(base.SpanAnnotator):
             tries[label].add(list(ent_tokens))
 
         gazetteer = GazetteerAnnotator(self.name, tries, self.case_sensitive,
-                                       additional_checks=False)
+                                       additional_checks=not self.case_sensitive)
         for start, end, label in gazetteer.find_spans(doc):
             yield start, end, label
 
