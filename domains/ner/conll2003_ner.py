@@ -309,8 +309,10 @@ class FullNameDetector():
 
 
 class SnipsAnnotator(SpanAnnotator):
-    """Annotation using the Snips NLU entity parser. """
-
+    """Annotation using the Snips NLU entity parser. 
+       You must install  "snips-nlu-parsers" (pip install snips-nlu-parsers) to make it work.
+    """
+    
     def __init__(self, name: str):
         """Initialise the annotation tool."""
 
