@@ -4,7 +4,7 @@ Labelled data remains a scarce resource in many practical NLP scenarios. This is
 
 `skweak` (pronounced `/ski:k/`) is a Python-based software toolkit that provides a concrete solution to this problem using _weak supervision_. `skweak` is built around a very simple idea: Instead of annotating texts by hand, we define a set of _labelling functions_ to automatically label our documents, and then _aggregate_ their results to obtain a labelled version of your corpus. 
 
-The labelling functions may take a variety of forms, such as domain-specific heuristics (like pattern-matching rules), gazetteers (based on dictionaries of possible entries), machine learning models, or even annotations from crowd-workers. The results of those labelling functions are then aggregated using a statistical model that automatically estimates the relative accuracy (and confusion matrices) of each labelling function by comparing their predictions with one another.
+The labelling functions may take a variety of forms, such as domain-specific heuristics (like pattern-matching rules), gazetteers (based on dictionaries of possible entries), machine learning models, or even annotations from crowd-workers. The aggregation is done using a statistical model that automatically estimates the relative accuracy (and confusion matrices) of each labelling function by comparing their predictions with one another.
 
 `skweak` can be applied to both sequence labelling and text classification, and comes with a complete API that makes it possible to create, apply and aggregate labelling functions with just a few lines of code. Give it a try!
 
@@ -15,19 +15,34 @@ For more details on `skweak`, see our paper (...). TODO
 
 **Documentation & API**: See the [Wiki](https://github.com/NorskRegnesentral/skweak/wiki) for details on how to use `skweak`. 
 
-## Requirements
+## Dependencies
 
-The following Python packages must be installed:
 - `spacy` >= 3.0.0
 - `hmmlearn` >= 0.2.4
 - `pandas` >= 0.23
 - `numpy` >= 1.18
 
-`skweak` has been developed with Python 3.x (we haven't tested it for Python 2.x, but it might be possible to get it to work).
+You also need Python >= 3.6. 
+
 
 ## Install
 
-TODO: make `skweak` into a full-blown package that can be installed through `pip install`. 
+The easiest way to install `skweak` is through `pip`:
+
+```shell
+pip install skweak
+```
+
+or if you want to install from the repo:
+
+To install from the repo:
+
+```shell
+pip install --user git+https://github.com/NorskRegnesentral/skweak
+```
+
+The above installation only includes the core library (not the additional examples in `domains`).
+
 
 ## Basic Overview
 
@@ -38,7 +53,7 @@ TODO: make `skweak` into a full-blown package that can be installed through `pip
 
 Weak supervision with `skweak` goes through the following steps:
 - **Start**: First, you need raw (unlabelled) data from your text domain. `skweak` is build on top of [SpaCy](http://www.spacy.io), and operates with Spacy `Doc` objects, so you first need to convert your documents to `Doc` objects with `spacy`.
-- **Step 1**: Then, we need to define a range of labelling functions that will take those documents and annotate spans with labels. Those labelling functions can comes from heuristics, gazetteers, machine learning models, or even noisy annotations from crowd-workers. See the ![documentation](https://github.com/NorskRegnesentral/skweak/wiki) for more details. 
+- **Step 1**: Then, we need to define a range of labelling functions that will take those documents and annotate spans with labels. Those labelling functions can comes from heuristics, gazetteers, machine learning models, etc. See the ![documentation](https://github.com/NorskRegnesentral/skweak/wiki) for more details. 
 - **Step 2**: Once the labelling functions have been applied to your corpus, you need to _aggregate_ their results in order to obtain a single annotation layer (instead of the multiple, possibly conflicting annotations from the labelling functions). This is done in `skweak` using a generative model that automatically estimates the relative accuracy and possible confuctions of each labelling function. 
 - **Step 3**: Finally, based on those aggregated labels, we can train our final model. Step 2 gives us a labelled corpus that (probabilistically) aggregates the outputs of all labelling functions, and you can use this labelled data to estimate any kind of machine learning model. You are free to use whichever model/framework you prefer. 
 
@@ -76,7 +91,7 @@ doc = lf3(lf2(lf1(doc)))
 hmm = aggregation.HMM("hmm", ["PERSON", "DATE", "MONEY"])
 hmm.fit_and_aggregate([doc])
 
-# we can then visualise the final result
+# we can then visualise the final result (in Jupyter)
 utils.display_entities(doc, "hmm")
 ```
 
