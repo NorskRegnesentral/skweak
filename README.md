@@ -2,9 +2,9 @@
 
 Labelled data remains a scarce resource in many practical NLP scenarios. This is especially the case when working with resource-poor languages (or text domains), or when using task-specific labels without pre-existing datasets. The only available option is often to collect and annotate texts by hand, which is an expensive and time-consuming process. 
 
-`skweak` (pronounced `/ski:k/`) is a Python-based software toolkit that provides a concrete solution to this problem using _weak supervision_. `skweak` is built around a very simple idea: Instead of annotating texts by hand, we define a set of _labelling functions_ to automatically label our documents, and then _aggregate_ their results to obtain a labelled version of your corpus. 
+`skweak` (pronounced `/skwi:k/`) is a Python-based software toolkit that provides a concrete solution to this problem using _weak supervision_. `skweak` is built around a very simple idea: Instead of annotating texts by hand, we define a set of _labelling functions_ to automatically label our documents, and then _aggregate_ their results to obtain a labelled version of your corpus. 
 
-The labelling functions may take a variety of forms, such as domain-specific heuristics (like pattern-matching rules), gazetteers (based on dictionaries of possible entries), machine learning models, or even annotations from crowd-workers. The aggregation is done using a statistical model that automatically estimates the relative accuracy (and confusion matrices) of each labelling function by comparing their predictions with one another.
+The labelling functions may take various forms, such as domain-specific heuristics (like pattern-matching rules), gazetteers (based on dictionaries of possible entries), machine learning models, or even annotations from crowd-workers. The aggregation is done using a statistical model that automatically estimates the relative accuracy (and confusion matrices) of each labelling function by comparing their predictions with one another.
 
 `skweak` can be applied to both sequence labelling and text classification, and comes with a complete API that makes it possible to create, apply and aggregate labelling functions with just a few lines of code. Give it a try!
 
