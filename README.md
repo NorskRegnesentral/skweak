@@ -13,7 +13,9 @@ The labelling functions may take various forms, such as domain-specific heuristi
 
 https://user-images.githubusercontent.com/11574012/114999146-e0995300-9ea1-11eb-8288-2bb54dc043e7.mp4
 
-For more details on `skweak`, see our paper (...). TODO
+
+**Paper**: Pierre Lison, Jeremy Barnes and Aliaksandr Hubin (2021), "[skweak: Weak Supervision Made Easy for NLP](http://arxiv.org/abs/2104.09683)", *arXiv:2104.09683*.
+
 
 **Documentation & API**: See the [Wiki](https://github.com/NorskRegnesentral/skweak/wiki) for details on how to use `skweak`. 
 
@@ -108,3 +110,20 @@ See the [Wiki](https://github.com/NorskRegnesentral/skweak/wiki).
 
 The MIT License is a short and simple permissive license allowing both commercial and non-commercial use of the software. The only requirement is to preserve
 the copyright and license notices (see file [License](https://github.com/NorskRegnesentral/skweak/blob/main/LICENSE.txt)). Licensed works, modifications, and larger works may be distributed under different terms and without source code.
+
+## Citation
+
+See our paper describing the framework: 
+
+Pierre Lison, Jeremy Barnes and Aliaksandr Hubin (2021), "[skweak: Weak Supervision Made Easy for NLP](http://arxiv.org/abs/2104.09683)", *arXiv:2104.09683*
+
+```bibtex
+@misc{lison2021skweak,
+      title={skweak: Weak Supervision Made Easy for NLP}, 
+      author={Pierre Lison and Jeremy Barnes and Aliaksandr Hubin},
+      year={2021},
+      eprint={2104.09683},
+      archivePrefix={arXiv},
+      primaryClass={cs.CL}
+}
+```
