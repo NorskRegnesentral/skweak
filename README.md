@@ -1,17 +1,19 @@
 # skweak: Weak supervision for NLP
 
-Labelled data remains a scarce resource in many practical NLP scenarios. This is especially the case when working with resource-poor languages (or text domains), or when using task-specific labels without pre-existing datasets. The only available option is often to collect and annotate texts by hand, which is an expensive and time-consuming process. 
+Labelled data remains a scarce resource in many practical NLP scenarios. This is especially the case when working with resource-poor languages (or text domains), or when using task-specific labels without pre-existing datasets. The only available option is often to collect and annotate texts by hand, which is expensive and time-consuming. 
 
 `skweak` (pronounced `/skwi:k/`) is a Python-based software toolkit that provides a concrete solution to this problem using weak supervision. `skweak` is built around a very simple idea: Instead of annotating texts by hand, we define a set of _labelling functions_ to automatically label our documents, and then _aggregate_ their results to obtain a labelled version of our corpus. 
 
-The labelling functions may take various forms, such as domain-specific heuristics (like pattern-matching rules), gazetteers (based on dictionaries of possible entries), machine learning models, or even annotations from crowd-workers. The aggregation is done using a statistical model that automatically estimates the relative accuracy (and confusions) of each labelling function by comparing their predictions with one another.
+The labelling functions may take various forms, such as domain-specific heuristics (like pattern-matching rules), gazetteers (based on large dictionaries), machine learning models, or even annotations from crowd-workers. The aggregation is done using a statistical model that automatically estimates the relative accuracy (and confusions) of each labelling function by comparing their predictions with one another.
 
-`skweak` can be applied to both sequence labelling and text classification, and comes with a complete API that makes it possible to create, apply and aggregate labelling functions with just a few lines of code. Give it a try!
+`skweak` can be applied to both sequence labelling and text classification, and comes with a complete API that makes it possible to create, apply and aggregate labelling functions with just a few lines of code. The toolkit is also tightly integrated with [SpaCy](http://www.spacy.io), which makes it easy to incorporate into existing NLP pipelines. Give it a try!
 
 <br>
 
 
 https://user-images.githubusercontent.com/11574012/114999146-e0995300-9ea1-11eb-8288-2bb54dc043e7.mp4
+
+<br>
 
 
 **Paper**: Pierre Lison, Jeremy Barnes and Aliaksandr Hubin (2021), "[skweak: Weak Supervision Made Easy for NLP](http://arxiv.org/abs/2104.09683)", *arXiv:2104.09683*.
