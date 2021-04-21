@@ -1,9 +1,9 @@
 # skweak: Weak supervision for NLP
 
-<br><br><br>
+<br><br>
 <p align="center">
    <img alt="skweak logo" src="https://raw.githubusercontent.com/NorskRegnesentral/skweak/main/data/skweak_logo.jpg"/>
-</p><br><br><br>
+</p>
 
 Labelled data remains a scarce resource in many practical NLP scenarios. This is especially the case when working with resource-poor languages (or text domains), or when using task-specific labels without pre-existing datasets. The only available option is often to collect and annotate texts by hand, which is expensive and time-consuming. 
 
