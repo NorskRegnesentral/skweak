@@ -13,8 +13,12 @@ The labelling functions may take various forms, such as domain-specific heuristi
 
 `skweak` can be applied to both sequence labelling and text classification, and comes with a complete API that makes it possible to create, apply and aggregate labelling functions with just a few lines of code. The toolkit is also tightly integrated with [SpaCy](http://www.spacy.io), which makes it easy to incorporate into existing NLP pipelines. Give it a try!
 
-**Paper**: Pierre Lison, Jeremy Barnes and Aliaksandr Hubin (2021), "[skweak: Weak Supervision Made Easy for NLP](http://arxiv.org/abs/2104.09683)", *arXiv:2104.09683*.
+<br>
 
+**Full Paper**:<br>
+Pierre Lison, Jeremy Barnes and Aliaksandr Hubin (2021), "[skweak: Weak Supervision Made Easy for NLP](http://arxiv.org/abs/2104.09683)", *arXiv:2104.09683*.
+
+**Documentation & API**: See the [Wiki](https://github.com/NorskRegnesentral/skweak/wiki) for details on how to use `skweak`. 
 
 <br>
 
@@ -24,7 +28,6 @@ https://user-images.githubusercontent.com/11574012/114999146-e0995300-9ea1-11eb-
 <br>
 
 
-**Documentation & API**: See the [Wiki](https://github.com/NorskRegnesentral/skweak/wiki) for details on how to use `skweak`. 
 
 ## Dependencies
 
