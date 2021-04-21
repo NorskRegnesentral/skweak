@@ -24,13 +24,15 @@ class BaseAggregator(AbstractAnnotator):
 
     def __init__(self, name: str, labels: List[str], sequence_labelling: bool = True,
                  prefixes: str = "BIO"):
-        """Creates a new token-level aggregator with the following arguments:
+        """Creates a new aggregator with the following arguments:
         - name is the aggregator name
-        - labels is a list of output labels such as PERSON, ORG etc. 
-        - If sequence_labelling is set to True, the labels are aggregated at the token-level
-         (using IO/BIO/BILUO prefixes). Otherwise, skweak simply groups together spans with the 
-          same (start,end) boundary, and aggregates their labels.
-        - prefixes must be either 'IO', 'BIO', 'BILUO'. Ignored if sequence_labelling is False
+        - labels is a list of output labels to aggregate, such as PERSON, ORG etc. 
+          Labels that are not mentioned here are ignored. 
+        - If sequence_labelling=True, labels are aggregated at the token-level 
+          (using IO/BIO/BILUO prefixes). Otherwise, skweak simply groups together 
+          spans with the same (start,end) boundary, and aggregates their labels.
+        - prefixes must be either 'IO', 'BIO' or 'BILUO'. Ignored if sequence_labelling
+          is set to False
         """
 
         super(BaseAggregator, self).__init__(name)
@@ -185,10 +187,11 @@ class MajorityVoter(BaseAggregator):
                  initial_weights=None, prefixes: str = "BIO"):
         """Creates a majority voter to aggregate spans. Arguments:
         - name is the aggregator name
-        - labels is a list of output labels such as PERSON, ORG etc. 
-        - If sequence_labelling is set to True, the labels are aggregated at the token-level
-         (using IO/BIO/BILUO prefixes). Otherwise, skweak simply groups together spans with the 
-          same (start,end) boundary, and aggregates their labels.
+        - labels is a list of output labels to aggregate, such as PERSON, ORG etc. 
+          Labels that are not mentioned here are ignored. 
+        - If sequence_labelling=True, labels are aggregated at the token-level 
+          (using IO/BIO/BILUO prefixes). Otherwise, skweak simply groups together 
+          spans with the same (start,end) boundary, and aggregates their labels.
         - initial_weights is a dictionary associating source names to numerical weights
           in the range [0, +inf]. The default assumes weights = 1 for all functions. You
           can disable a labelling function by giving it a weight of 0.
@@ -260,11 +263,11 @@ class HMM(hmmlearn.base._BaseHMM, BaseAggregator):
         """Initialises the HMM model (which must be fitted before use). 
         Arguments:
         - name is the aggregator name
-        - labels is a list of output labels such as PERSON, ORG etc. 
-        - If sequence_labelling is set to True, the labels are aggregated at the token-level
-         (using IO/BIO/BILUO prefixes). Otherwise, skweak simply groups together spans with the 
-          same (start,end) boundary, and aggregates their labels.
-        - prefixes must be either 'IO', 'BIO', 'BILUO'. Ignored if sequence_labelling is False
+        - labels is a list of output labels to aggregate, such as PERSON, ORG etc. 
+          Labels that are not mentioned here are ignored. 
+        - If sequence_labelling=True, labels are aggregated at the token-level 
+          (using IO/BIO/BILUO prefixes). Otherwise, skweak simply groups together 
+          spans with the same (start,end) boundary, and aggregates their labels.
         - initial_weights is a dictionary associating source names to numerical weights
           in the range [0, +inf]. The default assumes weights = 1 for all functions. You
           can disable a labelling function by giving it a weight of 0.

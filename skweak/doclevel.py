@@ -62,31 +62,32 @@ class DocumentHistoryAnnotator(base.SpanAnnotator):
         for span in doc.spans[self.other_name]:
 
             # NB: We only consider entities with at least two tokens
-            if span.label_ in self.labels and len(span) >= 2:
+            if span.label_ not in self.labels or len(span) < 3:
+                continue
 
-                # We also extract subsequences
-                for length in range(1, len(span)+1):
-                    for i in range(length, len(span)+1):
+            # We also extract subsequences
+            for length in range(1, len(span)+1):
+                for i in range(length, len(span)+1):
 
-                        start2 = span.start + i-length
-                        end2 = span.start + i
-                        subseq = tuple(tok.text for tok in doc[start2:end2])
+                    start2 = span.start + i-length
+                    end2 = span.start + i
+                    subseq = tuple(tok.text for tok in doc[start2:end2])
 
-                        # We only consider first mentions
-                        if subseq in first_observed:
+                    # We ony consider first mentions
+                    if subseq in first_observed:
                             continue
 
-                        # To avoid too many FPs, the mention must have at least 4 charactes
-                        if sum(len(tok) for tok in subseq) <4:
-                            continue
+                    # To avoid too many FPs, the mention must have at least 4 charactes
+                    if sum(len(tok) for tok in subseq) <4:
+                        continue
                         
-                        # And if the span looks like a proper name, then at least one 
-                        # token in the subsequence must look like a proper name too 
-                        elif (any(utils.is_likely_proper(tok) for tok in span) and
-                              not any(utils.is_likely_proper(tok) for tok in doc[start2:end2])):
-                            continue
+                    # And if the span looks like a proper name, then at least one 
+                    # token in the subsequence must look like a proper name too 
+                    elif (any(utils.is_likely_proper(tok) for tok in span) and not 
+                          any(utils.is_likely_proper(tok) for tok in doc[start2:end2])):
+                        continue
                         
-                        first_observed[subseq] = Span(doc, start2, end2, span.label_)
+                    first_observed[subseq] = Span(doc, start2, end2, span.label_)
 
         return first_observed
 

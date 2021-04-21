@@ -1,5 +1,10 @@
 # skweak: Weak supervision for NLP
 
+<br>
+<p align="center">
+   <img alt="skweak logo" src="https://raw.githubusercontent.com/NorskRegnesentral/skweak/main/data/skweak_logo.jpg"/>
+</p><br>
+
 Labelled data remains a scarce resource in many practical NLP scenarios. This is especially the case when working with resource-poor languages (or text domains), or when using task-specific labels without pre-existing datasets. The only available option is often to collect and annotate texts by hand, which is expensive and time-consuming. 
 
 `skweak` (pronounced `/skwi:k/`) is a Python-based software toolkit that provides a concrete solution to this problem using weak supervision. `skweak` is built around a very simple idea: Instead of annotating texts by hand, we define a set of _labelling functions_ to automatically label our documents, and then _aggregate_ their results to obtain a labelled version of our corpus. 
@@ -8,15 +13,15 @@ The labelling functions may take various forms, such as domain-specific heuristi
 
 `skweak` can be applied to both sequence labelling and text classification, and comes with a complete API that makes it possible to create, apply and aggregate labelling functions with just a few lines of code. The toolkit is also tightly integrated with [SpaCy](http://www.spacy.io), which makes it easy to incorporate into existing NLP pipelines. Give it a try!
 
+**Paper**: Pierre Lison, Jeremy Barnes and Aliaksandr Hubin (2021), "[skweak: Weak Supervision Made Easy for NLP](http://arxiv.org/abs/2104.09683)", *arXiv:2104.09683*.
+
+
 <br>
 
 
 https://user-images.githubusercontent.com/11574012/114999146-e0995300-9ea1-11eb-8288-2bb54dc043e7.mp4
 
 <br>
-
-
-**Paper**: Pierre Lison, Jeremy Barnes and Aliaksandr Hubin (2021), "[skweak: Weak Supervision Made Easy for NLP](http://arxiv.org/abs/2104.09683)", *arXiv:2104.09683*.
 
 
 **Documentation & API**: See the [Wiki](https://github.com/NorskRegnesentral/skweak/wiki) for details on how to use `skweak`. 
@@ -56,7 +61,7 @@ The above installation only includes the core library (not the additional exampl
 </p><br>
 
 Weak supervision with `skweak` goes through the following steps:
-- **Start**: First, you need raw (unlabelled) data from your text domain. `skweak` is build on top of [SpaCy](http://www.spacy.io), and operates with Spacy `Doc` objects, so you first need to convert your documents to `Doc` objects with `spacy`.
+- **Start**: First, you need raw (unlabelled) data from your text domain. `skweak` is build on top of [SpaCy](http://www.spacy.io), and operates with Spacy `Doc` objects, so you first need to convert your documents to `Doc` objects using SpaCy.
 - **Step 1**: Then, we need to define a range of labelling functions that will take those documents and annotate spans with labels. Those labelling functions can comes from heuristics, gazetteers, machine learning models, etc. See the ![documentation](https://github.com/NorskRegnesentral/skweak/wiki) for more details. 
 - **Step 2**: Once the labelling functions have been applied to your corpus, you need to _aggregate_ their results in order to obtain a single annotation layer (instead of the multiple, possibly conflicting annotations from the labelling functions). This is done in `skweak` using a generative model that automatically estimates the relative accuracy and possible confusions of each labelling function. 
 - **Step 3**: Finally, based on those aggregated labels, we can train our final model. Step 2 gives us a labelled corpus that (probabilistically) aggregates the outputs of all labelling functions, and you can use this labelled data to estimate any kind of machine learning model. You are free to use whichever model/framework you prefer. 
@@ -77,7 +82,7 @@ def money_detector(doc):
 lf1 = heuristics.FunctionAnnotator("money", money_detector)
 
 # LF 2: detection of years with a regex
-lf2= heuristics.TokenConstraintAnnotator ("years", lambda tok: re.match("(19|20)\d{2}$", tok.text), "DATE")
+lf2= heuristics.TokenConstraintAnnotator("years", lambda tok: re.match("(19|20)\d{2}$", tok.text), "DATE")
 
 # LF 3: a gazetteer with a few names
 NAMES = [("Barack", "Obama"), ("Donald", "Trump"), ("Joe", "Biden")]
