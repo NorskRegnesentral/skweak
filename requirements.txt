@@ -1,0 +1,3 @@
+spacy>=3.0
+hmmlearn>=0.2
+pandas>=0.23
