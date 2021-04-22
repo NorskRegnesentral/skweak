@@ -3,6 +3,7 @@
 [![GitHub license](https://img.shields.io/github/license/NorskRegnesentral/skweak)](https://github.com/NorskRegnesentral/skweak/blob/main/LICENSE.txt)
 [![GitHub stars](https://img.shields.io/github/stars/NorskRegnesentral/skweak)](https://github.com/NorskRegnesentral/skweak/stargazers)
 ![PyPI](https://img.shields.io/pypi/v/skweak)
+![Testing](https://github.com/NorskRegnesentral/skweak/actions/workflows/testing.yml/badge.svg)
 
 <br>
 <p align="center">
