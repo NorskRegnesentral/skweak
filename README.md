@@ -1,5 +1,9 @@
 # skweak: Weak supervision for NLP
 
+[![GitHub license](https://img.shields.io/github/license/NorskRegnesentral/skweak)](https://github.com/NorskRegnesentral/skweak/blob/main/LICENSE.txt)
+[![GitHub stars](https://img.shields.io/github/stars/NorskRegnesentral/skweak)](https://github.com/NorskRegnesentral/skweak/stargazers)
+![PyPI](https://img.shields.io/pypi/v/skweak)
+
 <br>
 <p align="center">
    <img alt="skweak logo" src="https://raw.githubusercontent.com/NorskRegnesentral/skweak/main/data/skweak_logo.jpg"/>
