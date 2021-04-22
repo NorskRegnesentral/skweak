@@ -285,12 +285,16 @@ def extract_json_data(json_file: str, cutoff: Optional[int] = None,
     print("Extracting data from", json_file)
     tries = {}
     tokeniser = None
-    if json_file.endswith(".gz"):
-        fd = gzip.open(json_file, "rt")
-    else:
+    if json_file.endswith(".json.gz"):
+        fd = gzip.open(json_file, "r")
+        data = json.loads(fd.read().decode("utf-8"))
+        fd.close()
+    elif json_file.endswith(".json"):
         fd = open(json_file)
-    
-    data = json.load(fd)
+        data = json.load(fd)
+        fd.close()
+    else:
+        raise RuntimeError(str(json_file) + " does not look like a JSON file")    
 
     for neClass, names in data.items():
 
@@ -323,5 +327,4 @@ def extract_json_data(json_file: str, cutoff: Optional[int] = None,
                     trie.add(name)
 
         tries[neClass] = trie
-    fd.close()
     return tries

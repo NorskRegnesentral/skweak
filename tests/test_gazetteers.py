@@ -1,5 +1,5 @@
 from skweak import gazetteers, utils
-import json
+import json, gzip
 from spacy.tokens import Span #type: ignore
 
 def test_trie1():
@@ -25,17 +25,17 @@ def test_trie1():
                             ["Donald", "Trump"]]
     
     
-def test_trie2(nlp, json_file="data/wikidata_small.json", cutoff=100):
+def test_trie2(nlp, json_file="data/wikidata_small_tokenised.json.gz", cutoff=100):
     tries = gazetteers.extract_json_data(json_file, cutoff=cutoff)
-    fd = open(json_file)
-    data = json.load(fd)
+    fd = gzip.open(json_file, "r")
+    data = json.loads(fd.read().decode("utf-8"))
     fd.close()
     
     for neClass, names_for_class in data.items():
         nb_names = 0
         trie = tries[neClass]
         for name in names_for_class:
-            tokens = [tok.text for tok in nlp.tokenizer(name.strip())]
+            tokens = list(name)
             if len(tokens)==0:
                 continue
             assert tokens in trie
