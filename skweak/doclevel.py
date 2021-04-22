@@ -42,6 +42,7 @@ class DocumentHistoryAnnotator(base.SpanAnnotator):
 
         gazetteer = GazetteerAnnotator(self.name, tries, case_sensitive=self.case_sensitive,
                                        additional_checks=not self.case_sensitive)
+
         for start, end, label in gazetteer.find_spans(doc):
             if (start, end) not in first_observed_bounds:
                 yield start, end, label
@@ -62,7 +63,7 @@ class DocumentHistoryAnnotator(base.SpanAnnotator):
         for span in doc.spans[self.other_name]:
 
             # NB: We only consider entities with at least two tokens
-            if span.label_ not in self.labels or len(span) < 3:
+            if span.label_ not in self.labels or len(span) < 2:
                 continue
 
             # We also extract subsequences
@@ -75,15 +76,15 @@ class DocumentHistoryAnnotator(base.SpanAnnotator):
 
                     # We ony consider first mentions
                     if subseq in first_observed:
-                            continue
+                        continue
 
                     # To avoid too many FPs, the mention must have at least 4 charactes
                     if sum(len(tok) for tok in subseq) <4:
                         continue
-                        
+                    
                     # And if the span looks like a proper name, then at least one 
                     # token in the subsequence must look like a proper name too 
-                    elif (any(utils.is_likely_proper(tok) for tok in span) and not 
+                    if (any(utils.is_likely_proper(tok) for tok in span) and not 
                           any(utils.is_likely_proper(tok) for tok in doc[start2:end2])):
                         continue
                         
