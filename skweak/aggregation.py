@@ -213,6 +213,12 @@ class MajorityVoter(BaseAggregator):
         is indicated by most sources. If underspecified labels are included, they 
         are also part of the vote count. """
 
+        # Special case: if the document has no observation whatsoever
+        if len(obs.columns)==0:
+            probs = np.zeros(shape=(len(obs), len(self.out_labels)))
+            probs[:,0] = 1
+            return pandas.DataFrame(probs, index=obs.index, columns=self.out_labels)
+        
         # We count the votes for each label on all sources
         def count_function(x):
             # For sequence-labelling, we count the frequency of "O" labels (since "O"
@@ -312,7 +318,7 @@ class HMM(hmmlearn.base._BaseHMM, BaseAggregator):
 
         # Convert the observations to one-hot representations
         X = {src: self._to_one_hot(obs[src].values) for src in obs.columns}
-
+        
         # Compute the log likelihoods for each states
         framelogprob = self._compute_log_likelihood(X)
 
@@ -364,6 +370,10 @@ class HMM(hmmlearn.base._BaseHMM, BaseAggregator):
 
                 # Transform the document annotations into observations
                 obs = self.get_observation_df(doc)
+                
+                # Special case: no observations from any source
+                if len(obs.columns)==0:
+                    continue
 
                 # Convert the observations to one-hot representations
                 X = {src: self._to_one_hot(obs[src].values)
@@ -371,6 +381,7 @@ class HMM(hmmlearn.base._BaseHMM, BaseAggregator):
 
                 # Compute its current log-likelihood
                 framelogprob = self._compute_log_likelihood(X)
+                
                 # Make sure there is no token with no possible states
 
                 if (np.isnan(framelogprob).any() or  # type: ignore
