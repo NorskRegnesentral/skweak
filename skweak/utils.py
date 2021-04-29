@@ -558,9 +558,9 @@ def token_array_to_probs(agg_array: np.ndarray,
     row_indices, col_indices = np.nonzero(agg_array[:, 1:])
     for i, j in zip(row_indices, col_indices):
         if i not in token_probs:
-            token_probs[i] = {prefix_labels[j+1]: agg_array[i, j+1]}
+            token_probs[i] = {prefix_labels[j+1]: agg_array[i, j+1]} #type: ignore
         else:
-            token_probs[i][prefix_labels[j+1]] = agg_array[i, j+1]
+            token_probs[i][prefix_labels[j+1]] = agg_array[i, j+1] #type: ignore
 
     return token_probs
 
@@ -612,11 +612,14 @@ def is_valid_transition(prefix_label1, prefix_label2, encoding="BIO"):
 # Visualisation
 ############################################
 
-def display_entities(doc: Doc, layer=None, add_tooltip=True):
+def display_entities(doc: Doc, layer=None, add_tooltip=False):
     """Display the entities annotated in a spacy document, based on the
     provided annotation layer(s). If layer is None, the method displays
     the entities from Spacy. 
     This method will only work in a Jupyter Notebook or similar. 
+    If add_tooltip is set to True, the visualisation also adds tooltips to show
+    the predictions of each labelling functions for a given token. This functionality
+    only works with Jupyter Lab (not Jupyter Notebook).
     """
     import spacy.displacy
     import IPython.core.display
