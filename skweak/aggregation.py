@@ -55,7 +55,9 @@ class BaseAggregator(AbstractAnnotator):
     def __call__(self, doc: Doc) -> Doc:
         """Aggregates all weak supervision sources"""
 
-        if len(doc.spans) > 0:
+        sources = [source for source in doc.spans if len(doc.spans[source]) > 0
+                   and "aggregated" not in doc.spans[source].attrs]
+        if len(sources) > 0 :
 
             # Extracting the observation data
             df = self.get_observation_df(doc)
@@ -315,7 +317,7 @@ class HMM(hmmlearn.base._BaseHMM, BaseAggregator):
 
         if not hasattr(self, "emit_probs"):
             raise RuntimeError("Model is not yet trained")
-
+        
         # Convert the observations to one-hot representations
         X = {src: self._to_one_hot(obs[src].values) for src in obs.columns}
         
