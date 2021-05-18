@@ -90,7 +90,8 @@ class GazetteerAnnotator(base.SpanAnnotator):
 
         if token.is_punct:
             return 0
-        elif token.i > 0 and token.nbor(-1).dep_ == "compound" and token.nbor(-1).head == token:
+        elif (self.additional_checks and token.i > 0 and token.nbor(-1).dep_ == "compound" 
+              and token.nbor(-1).head == token):
             return 0
 
         return min(next_sentence_boundary-token.i, self.lookahead)
