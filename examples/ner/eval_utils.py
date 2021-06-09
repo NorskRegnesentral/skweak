@@ -125,7 +125,10 @@ def compute_raw_numbers(docs, all_labels, target_source, conf_threshold=0.5):
     tok_support = {}
 
     for doc in docs:
-        spans = utils.get_spans_with_probs(doc, target_source)
+        if target_source in doc.spans:
+            spans = utils.get_spans_with_probs(doc, target_source)
+        else:
+            spans = []
         spans = [span for (span, prob) in spans if prob >= conf_threshold]
             
         for label in all_labels:
@@ -168,7 +171,7 @@ def _get_probs(doc, all_labels, target_source):
             gold_probs[i, out_label_indices.get("I-%s" % ent.label_, 0)] = 1
     
     pred_probs = np.zeros(gold_probs.shape)
-    if "probs" in doc.spans[target_source].attrs:       
+    if target_source in doc.spans and "probs" in doc.spans[target_source].attrs:       
         for tok_pos, labels in doc.spans[target_source].attrs["probs"].items():
             for label, label_prob in labels.items():
                 pred_probs[tok_pos, out_label_indices[label]] = label_prob

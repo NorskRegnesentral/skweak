@@ -56,7 +56,9 @@ class BaseAggregator(AbstractAnnotator):
         """Aggregates all weak supervision sources"""
 
         sources = [source for source in doc.spans if len(doc.spans[source]) > 0
-                   and "aggregated" not in doc.spans[source].attrs]
+                   and not doc.spans[source].attrs.get("aggregated", False)
+                   and not doc.spans[source].attrs.get("avoid_in_aggregation", False)]
+        
         if len(sources) > 0 :
 
             # Extracting the observation data
@@ -93,7 +95,8 @@ class BaseAggregator(AbstractAnnotator):
 
         # Extracting the sources to consider (and filtering out the ones to avoid)
         sources = [source for source in doc.spans if len(doc.spans[source]) > 0
-                   and "aggregated" not in doc.spans[source].attrs]
+                   and not doc.spans[source].attrs.get("aggregated", False)
+                   and not doc.spans[source].attrs.get("avoid_in_aggregation", False)]
 
         # If the aggregation includes token-level segmentation, returns a dataframe
         # with token-level predictions
@@ -336,7 +339,7 @@ class HMM(hmmlearn.base._BaseHMM, BaseAggregator):
 
         return pandas.DataFrame(posteriors, columns=self.out_labels, index=obs.index)
 
-    def fit(self, docs: Iterable[Doc], cutoff: int = None, n_iter=4, tol=1e-2):
+    def fit(self, docs: Iterable[Doc], cutoff: int = None, n_iter=5, tol=1e-2):
         """Train the HMM annotator based on a collection of documents 
         (which must have already been annotated using labelling functions)"""
 
@@ -446,16 +449,17 @@ class HMM(hmmlearn.base._BaseHMM, BaseAggregator):
 
         return logsum  # type: ignore
 
-    def _extract_sources(self, docs: Iterable[Doc], max_number=1000):
+    def _extract_sources(self, docs: Iterable[Doc], max_number=None):
         """Extract the names of all labelling sources mentioned in the documents
         (and not included in the list of sources to avoid)"""
         sources = set()
         for i, doc in enumerate(docs):
             for source in doc.spans:
                 if (len(doc.spans[source]) > 0 and
-                        "aggregated" not in doc.spans[source].attrs):
+                    not doc.spans[source].attrs.get("aggregated", False) and
+                    not doc.spans[source].attrs.get("avoid_in_aggregation", False)):
                     sources.add(source)
-            if i > max_number:
+            if max_number is not None and i > max_number:
                 break
 
         return sources
