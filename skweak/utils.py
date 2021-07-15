@@ -31,6 +31,7 @@ def is_likely_proper(tok: Token, min_rank=200) -> bool:
     # If there is no lemma, but the token is in uppercase, return true as well
     elif tok.lemma_=="" and tok.is_upper:
         return True
+
     
     # We do not consider the 200 most common words as proper name
     elif (tok.lemma_.islower() and tok.lemma in tok.vocab.strings
@@ -58,8 +59,9 @@ def is_likely_proper(tok: Token, min_rank=200) -> bool:
     elif tok.pos_ == "PROPN":
         return True
 
-    # If the token is in lowercase but is a quite rare token
-    elif len(tok) > 3 and tok.is_lower and len(tok.vocab.vectors) > 0 and tok.is_oov:
+    # If the token is in lowercase/uppercase but is a quite rare token
+    elif (len(tok) > 3 and (tok.is_lower or tok.is_upper) and
+          len(tok.vocab.vectors) > 0 and tok.is_oov):
         return True
 
     return False
