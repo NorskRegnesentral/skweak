@@ -1,4 +1,3 @@
-
 from abc import abstractmethod
 from typing import Iterable, List, Set, Dict
 import numpy as np
@@ -157,8 +156,10 @@ class BaseAggregator(AbstractAnnotator):
                 underspec_label_with_prefix = "%s-%s" % (
                     prefix, underspec_label)
                 prefixed_vals = {"%s-%s" % (prefix, value)
-                                 for value in satisfied_values}
+                                 for value in satisfied_values if value !="O"}
                 self.underspecified_labels[underspec_label_with_prefix] = prefixed_vals
+                if "O" in satisfied_values:
+                    self.underspecified_labels[underspec_label_with_prefix] = {"O"}
         else:
             self.underspecified_labels[underspec_label] = satisfied_values
 
