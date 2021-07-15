@@ -27,6 +27,7 @@ def test_history(nlp):
     assert Span(doc, 26, 27, "PERSON") in doc.spans["hist_cased"]
     assert Span(doc, 32, 33, "ORG") in doc.spans["hist_cased"]
     assert Span(doc, 32, 33, "ORG") in doc.spans["hist_uncased"]
+    print("DEBUG", doc[45], doc[45].lemma_, doc[45].tag_)
     assert Span(doc, 45, 46, "ORG") in doc.spans["hist_uncased"]
     
     
