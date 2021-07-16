@@ -171,7 +171,7 @@ def test_combi(doc2, combi_annotator):
     assert len(doc2.spans["spacy"]) > 35
     assert len(doc2.spans["spacy"]) < 45
     assert len(doc2.spans["geo_cased"]) in {0,1}
-    assert len(doc2.spans["geo_uncased"]) == {1,2}
+    assert len(doc2.spans["geo_uncased"]) in {1,2}
     assert len(doc2.spans["products_cased"]) == 9
     assert len(doc2.spans["proper2_detector"]) >= 32
     assert len(doc2.spans["proper2_detector"]) < 40
