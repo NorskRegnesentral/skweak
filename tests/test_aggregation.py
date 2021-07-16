@@ -177,7 +177,7 @@ def test_combi(doc2, combi_annotator):
     assert len(doc2.spans["proper2_detector"]) < 40
     assert len(doc2.spans["full_name_detector"]) in {3,4}
     assert len(doc2.spans["doc_history_cased"]) in {11,12}
-    assert len(doc2.spans["doc_majority_cased"]) in {26}
+    assert len(doc2.spans["doc_majority_cased"]) in {23,26}
       
 def test_hmm3(doc2, combi_annotator):
     hmm = aggregation.HMM("hmm", ["GPE", "PRODUCT", "MONEY", "PERSON", "ORG", "DATE"])
