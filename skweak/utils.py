@@ -59,9 +59,9 @@ def is_likely_proper(tok: Token, min_rank=200) -> bool:
     elif tok.pos_ == "PROPN":
         return True
 
-    # If the token is in lowercase/uppercase but is a quite rare token
-    elif (len(tok) > 3 and (tok.is_lower or tok.is_upper) and
-          len(tok.vocab.vectors) > 0 and tok.is_oov):
+    # If the token is a quite rare token
+    elif (len(tok) > 3 and (tok.is_lower or tok.is_upper)
+          and len(tok.vocab.vectors) > 0 and tok.is_oov):
         return True
 
     return False
