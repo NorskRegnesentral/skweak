@@ -90,8 +90,8 @@ def money_detector(doc):
 lf1 = heuristics.FunctionAnnotator("money", money_detector)
 
 # LF 2: detection of years with a regex
-lf2= heuristics.TokenConstraintAnnotator("years", lambda tok: re.match("(19|20)\d{2}$", tok.text),
-                                         "DATE")
+lf2= heuristics.TokenConstraintAnnotator("years", lambda tok: re.match("(19|20)\d{2}$", 
+                                                  tok.text), "DATE")
 
 # LF 3: a gazetteer with a few names
 NAMES = [("Barack", "Obama"), ("Donald", "Trump"), ("Joe", "Biden")]
