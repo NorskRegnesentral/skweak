@@ -34,15 +34,17 @@ class LFAnalysis:
             and `gold_labels` should contain a mapping  between label name
             and span name.
 
-            For example, if the following value as provided:
+            For example, if the following value was provided:
                 labels_to_gold_span_names = {
                     'PER': 'PER_GOLD',
                     'LOC': 'LOC_GOLD
                 }  
 
             This would imply that each Doc in `docs` will have spans named
-            'PER_GOLD' and 'LOC_GOLD', with strings that have been have gold
-            labels 'PER' and 'LOC' respectively.
+            'PER_GOLD' and 'LOC_GOLD'. 'PER_GOLD' would have a list of spans
+            that have been assigned the 'PER' label within the gold dataset.
+            Similarly, 'LOC_GOLD' would have a list of spans tht have been 
+            assigned the 'LOC' labeld within the gold dataset.
         """
         self.docs = docs
         self.labels_to_gold_span_names = labels_to_gold_span_names
@@ -96,13 +98,14 @@ class LFAnalysis:
             identified during initialization.
 
             If `normalize_by_gold_labels` is True, compute coverage for a label
-            relative to the number of documents with the label as a gold label.
+            relative to the number of documents with the gold label.
 
             For example, if 5 out of 10 documents have "PER" spans and 
-            `normalize_by_gold_labels` is False, coverage will be 50%. However,
-            if `normalize_by_gold_labels` is True and 5 out of 10 documents 
-            have "PER" spans according to the provided gold labels, the 
-            coverag will be 100%.
+            `normalize_by_gold_labels` is False, coverage will be 50%.
+            
+            However, if `normalize_by_gold_labels` is True and 5 out of 10
+            documents have "PER" spans according to the provided gold labels,
+            the coverage will be 100%.
         """
         if labels is None:
             # Check coverage for all labels
