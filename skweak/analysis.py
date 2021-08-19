@@ -1,163 +1,211 @@
 from collections import defaultdict
 from skweak.base import CombinedAnnotator
-from typing import Dict, List, Optional
+from typing import DefaultDict, Dict, List, Optional, Set
 from spacy.tokens import Doc
 
 class LFAnalysis:
-    """ Run analyses on a list of spaCy Documents to which LFs have 
-        been applied.
-        
-        Analyses include:
-            1. Label Conflicts 
-            2. Label Coverage
-            3. Label Overlap
-            4. Label Accuracies (against labeled dataset)
+    """ Run analyses on a list of spaCy Documents (corpus) to which LFs have
+    been applied.
     """
 
     def __init__(
         self,
-        docs:List[Doc],
+        corpus:List[Doc],
+        labels:List[str],
         combined_annotator:CombinedAnnotator,
         excluded_lf_names:Optional[List[str]] = None,
-        labels_to_gold_span_names:Optional[Dict[str, str]] = None
     ):
         """ Initializes LFAnalysis tool on a list of spaCY documents to which
-            the CombinedAnnotator has been applied.
-            
-            If there are annotators that should be excluded from analysis
-            these can be optionally provided.
+        the CombinedAnnotator has been applied.
+        
+        If there are annotators that should be excluded from analysis
+        these can be optionally provided.
 
-            If `docs` have gold labels (e.g., manually assigned annotations),
-            these can be optionally utilized downstream to normalize coverage
-            or compute empirical accuracies of individual learning functions. 
-            Gold labels should be included among the spans for the Doc objects
-            and `gold_labels` should contain a mapping  between label name
-            and span name.
-
-            For example, if the following value was provided:
-                labels_to_gold_span_names = {
-                    'PER': 'PER_GOLD',
-                    'LOC': 'LOC_GOLD
-                }  
-
-            This would imply that each Doc in `docs` will have spans named
-            'PER_GOLD' and 'LOC_GOLD'. 'PER_GOLD' would have a list of spans
-            that have been assigned the 'PER' label within the gold dataset.
-            Similarly, 'LOC_GOLD' would have a list of spans tht have been 
-            assigned the 'LOC' labeld within the gold dataset.
+        If there are labels for which no spans have been annotated an
+        error message shall be printed, but no Exception shall be thrown.
         """
-        self.docs = docs
-        self.labels_to_gold_span_names = labels_to_gold_span_names
-        self.lf_names = set()
-        self.lf_labels = set()
-        self.lf_labels_to_lf_names = defaultdict(list)
+        self.corpus = corpus
+        self.labels = labels
+        self.lf_names = self._index_lfs(combined_annotator,excluded_lf_names)
+        self.labels_to_lf_names = self._map_labels_to_lfs()
 
-        # Index LFs from CombinedAnnotator except those explicitly excluded
+
+    def label_conflict(self) -> Dict[str, float]:
+        """ For each label, compute the fraction of tokens with conflicting
+        non-null labels. 
+        
+        A conflict is defined as an instance where 2 LFs that annotate 
+        the same token with different non-null labels. As an example, a
+        conflict would be detected if:
+            - LF1 returns "PER" for the token "Apple"
+            - LF2 returns "ORG" for the token "Apple"
+
+        A conflict is not registered if 1 LF predicts the token to have
+        a null label, while another predicts the token to have non-null
+        label. For example, a conflict would not be registered if: 
+            - LF1 returns "ORG" for the token "Apple"
+            - LF2 returns "O" (null-label) for the token "Apple"
+        """
+        return {}
+
+
+    def label_agreement(self) -> Dict[str, float]:
+        """ For each label, compute the fraction of tokens with agreeing
+        non-null labels. 
+        
+        An agreement is defined as an instance where 2 LFs that annotate 
+        the same token with the same non-null labels. As an example, an
+        agreement would be detected if:
+            - LF1 returns "ORG" for the token "Apple"
+            - LF2 returns "ORG" for the token "Apple"
+        """
+        return {}
+
+
+    def label_overlap(self) -> Dict[str, float]:
+        """ For each label, compute the fraction of tokens with at least 2 
+        LFs providing a non-null annotation.
+        """
+        return {}
+
+
+    def lf_conflicts(
+        self
+    )-> Dict[str, Dict[str, float]]:
+        """ For each LF, compute the fraction of tokens that have conflicting
+        non-null annotations overall and for each of its target labels.
+
+        A conflict is defined as an instance where 2 LFs with different
+        target labels annotate the same token with a non-null label.
+
+        Example return object:
+        {
+            "lf1": {
+                "PER": 0.4,
+                "DATE" 0.0,
+            }, 
+            "lf2": {
+                "PER": 0.2,
+            }
+        }
+
+        """
+        return {}
+
+
+    def lf_agreements(self) -> Dict[str, Dict[str, float]]:
+        """ For each LF and its target labels, compute the fraction of tokens
+        that have agreeing non-null annotations from another LF for each 
+        of its target labels.
+
+        An agreement is defined as an instance where 2 LFs with the same
+        target labels annotate the same token with a non-null label.
+
+        Example return object:
+        {
+            "lf1": {
+                "PER": 0.6,
+                "DATE" 1.0,
+            }, 
+            "lf2: {
+                "PER": 0.2,
+            }
+        }
+        """
+        return {}
+
+
+    def lf_overlaps(self) -> Dict[str, Dict[str, float]]:
+        """ For each LF and its target labels, compute the fraction of tokens
+        that have another LF providings a non-null label.
+
+        Example return object:
+        {
+            "lf1": {
+                "PER": 0.6,
+                "DATE" 1.0,
+            }, 
+            "lf2": {
+                "PER": 0.2,
+            }
+        }
+        """
+        return {}
+
+
+    def lf_empirical_accuracies(self,
+        Y:List[Doc],
+        label_to_span_names:Dict[str, str]
+    ) -> Dict[str, Dict[str, float]]:
+        """ For each LF and its target labels, compute the empirical accuracy.
+
+        Example return object:
+        {
+            "lf1": {
+                "PER": 0.6,
+                "DATE" 1.0,
+            }, 
+            "lf2": {
+                "PER": 0.2,
+            }
+        }
+        """
+        return {}
+
+
+    def lf_labels(self) -> DefaultDict[Set[str]]:
+        """ Infer the labels of each LF based on the evidence in the corpus.
+        """
+        lf_names_to_labels = defaultdict(set)
+        for label, lf_names in self.labels_to_lf_names.items():
+            for lf_name in lf_names:
+                lf_names[lf_name].add(label)
+        return lf_names_to_labels
+
+
+    def _index_lfs(
+        self,
+        combined_annotator:CombinedAnnotator,
+        excluded_lf_names:Optional[List[str]] = None
+    ):
+        """ Index LFs from CombinedAnnotator except those explicitly excluded.
+        """
+        self.lf_names:Set[str] = set()
         for lf in combined_annotator.annotators:
             if excluded_lf_names is not None and lf.name in excluded_lf_names:
                 continue
             else:
-                self._validate_span_across_docs(lf.name)
+                self._validate_lf_across_corpus(lf.name)
                 self.lf_names.add(lf.name)
-                self.lf_labels_to_lf_names[lf.label].append(lf.name)
 
-        if self.labels_to_gold_span_names is not None:
-            # Check that each gold label is addressed by 1+ LF
-            missing_labels = (
-                set(self.labels_to_gold_span_names.keys()) - self.lf_labels
-            )
-            if len(missing_labels) >= 1:
-                raise ValueError(
-                    f"Missing labels from LFs for: {missing_labels}"
-                )
 
-            # Check that each LF is addressed by a gold label
-            missing_gold_labels = (
-                self.lf_labels- set(self.labels_to_gold_span_names.keys())
-            )
-            if len(missing_gold_labels) >= 1:
-                raise ValueError(
-                    f"Missing gold labels for: {missing_gold_labels}"
-                )
-
-            # Validate that gold labels (if provided) exist for each document
-            for span_name in self.labels_to_gold_span_names.values():
-                self._validate_span_across_docs(span_name)
-            
-
-    def label_coverage(
-        self,
-        labels:Optional[List[str]] = None,
-        normalize_by_gold_labels = False
-    ) -> Dict[str, float]:
-        """ Compute the fraction of spaCy documents that have at least one span
-            with a specific label.
-
-            If labels are provided, coverage is computed for each provided 
-            label. Otherwise, label coverage is computed for all labels
-            identified during initialization.
-
-            If `normalize_by_gold_labels` is True, compute coverage for a label
-            relative to the number of documents with the gold label.
-
-            For example, if 5 out of 10 documents have "PER" spans and 
-            `normalize_by_gold_labels` is False, coverage will be 50%.
-            
-            However, if `normalize_by_gold_labels` is True and 5 out of 10
-            documents have "PER" spans according to the provided gold labels,
-            the coverage will be 100%.
+    def _map_labels_to_lfs(self):
+        """ Generate mapping from labels to LFs, given corpus of docs annotated
+            by LFs. Raise a warning if there is a label selected for analysis
+            that has never been seen in the annotated dataset. 
         """
-        if labels is None:
-            # Check coverage for all labels
-            labels = self.lf_labels
-        else:
-            # Validate that label is returned by at least one LF
-            for label in labels:
-                self._validate_label_across_docs(label)
+        self.labels_to_lf_names = defaultdict(set)
+        for doc in self.corpus:
+            for lf_name in self.lf_names:
+                for span in doc.spans[lf_name]:
+                    self.labels_to_lf_names[span.label_].add(lf_name)
         
-        label_counts = defaultdict(0)
-        if normalize_by_gold_labels:
-            gold_label_counts = defaultdict(0)
+        unused_labels = []
+        for label in self.labels:
+            if len(self.labels_to_lf_names) == 0:
+                unused_labels.append(label)
+        print(
+            f"{unused_labels} labels were not found"
+            "in your corpus of documents"
+        )
 
-        # Count documents containing each of the labels (according to LFs)
-        for doc in self.docs:
-            for label in labels:
-                for lf_name in self.lf_labels_to_lf_names[label]:
-                    if len(doc.spans[lf_name]) >= 1:
-                        label_counts[label] += 1
-                        break
-                if normalize_by_gold_labels and len(
-                        doc.spans[self.labels_to_gold_span_names[label]]
-                    ) >= 1:
-                        gold_label_counts[label] += 1
-                    
-
-        # Compute coverages:
-        if normalize_by_gold_labels:
-            return {
-                label: counts / gold_label_counts[label] 
-                for label, counts in label_counts.items()
-            }            
-        else:
-            return {
-                label: counts / len(self.docs) 
-                for label, counts in label_counts.items()
-            }
-
-
-    def _validate_span_across_docs(self, name:str):
-        for d in self.docs:
+    def _validate_lf_across_corpus(self, name:str):
+        """ Check whether a LF has been applied to every document in a
+            corpus. 
+        """
+        for d in self.corpus:
             if name not in d.spans.keys():
                 raise ValueError(
-                    f"{name} span is missing from one"
-                    "or more your the provided documents"
+                    f"{name} LF is missing from one"
+                    "or more of documents in the corpus"
                 )
-
-
-    def _validate_label_across_docs(self, label:str):
-        if label not in self.lf_labels:
-            raise ValueError(
-                f"{label} is not captured by your LFs"
-                f"{self.lf_labels} are captured."
-            )
-    
