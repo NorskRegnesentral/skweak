@@ -2,7 +2,7 @@
 import json
 import re
 import functools
-from typing import List, Dict, Tuple, Optional, TypeVar, Iterable
+from typing import List, Dict, Set, Tuple, Optional, TypeVar, Iterable
 from spacy.tokens import Doc, Token, Span, DocBin  # type: ignore
 import numpy as np
 
@@ -439,8 +439,11 @@ def get_subsequences(sequence: List[T]) -> List[List[T]]:
     return subsequences
 
 
-def spans_to_array(doc: Doc, labels: List[str],
-                   sources: List[str] = None) -> np.ndarray:
+def spans_to_array(
+    doc: Doc,
+    labels: List[str],
+    sources: Optional[List[str]] = None,
+) -> np.ndarray:
     """Convert the annotations of a spacy document into a 2D array.
     Each row corresponds to a token, and each column to a labelling
     source. In other words, the value at (i,j) represents the prediction
@@ -454,18 +457,91 @@ def spans_to_array(doc: Doc, labels: List[str],
     NB: we assume the labels use either IO/BIO/BILUO, and that the
     O label is at position 0.
     """
+    label_indices, prefixes, labels_without_prefix, = _index_labels(
+        original_labels=labels,
+        strip_prefixes=False,
+    )
+    return _spans_to_array(
+        doc, 
+        sources,
+        label_indices,
+        labels_without_prefix,
+        prefixes
+    )
 
-    # Creating some helper dictionaries
-    label_indices = {}
+
+def _index_labels(
+    original_labels: List[str],
+    strip_prefixes: bool = False
+) -> Tuple[Dict[str, int], Set[str], Set[str]]:
+    """ Normalize and index a list of labels to:
+    1. Generate a mapping from labels to indices
+    2. Identify label prefixes (e.g., I, B, L, etc.)
+    3. Identify list of labels without prefixes
+
+    If `strip_prefixes` is True, we normalize IO/BIO/BILUO labels
+    (e.g., B-PERSON and I-PERSON will be normalized PERSON). 
+    
+    If `strip_prefixes` is False, we assume the labels
+    use IO/BIO/BILUO formats and mantain different labels/indices for labels
+    like B-PERSON and I-PERSON.
+
+    NB: We assume that the first label in labels is 'O' for the null token.
+    """
+    labels = []
     prefixes = set()
     labels_without_prefix = set()
-    for i, label in enumerate(labels):
-        label_indices[label] = i
-        if "-" in label:
-            prefix, label = label.split("-", 1)
-            prefixes.add(prefix)
-            labels_without_prefix.add(label)
 
+    for original_label in original_labels:
+        if "-" in original_label:
+            # Normalize B-PER and I-PER to PER
+            prefix, normalized_label = original_label.split("-", 1)
+            prefixes.add(prefix)
+        else:
+            # No normalization required 
+            normalized_label = original_label
+
+        # Track labels without prefixes
+        labels_without_prefix.add(normalized_label)
+
+        if strip_prefixes:
+            # Use normalized label for token labeling
+            if normalized_label not in labels:
+                labels.append(normalized_label)
+        else:
+            # Use original label for token labeling
+            if original_label not in labels:
+                labels.append(original_label)
+
+    # Generate mapping of labels to label indices
+    label_indices = {label: i for i, label in enumerate(labels)}
+
+    return label_indices, prefixes, labels_without_prefix
+
+
+def _spans_to_array(
+    doc: Doc,
+    sources: List[str],
+    label_indices: Dict[str, int],
+    labels_without_prefix: Set[str],
+    prefixes: Optional[Set[str]] = None,
+) -> np.ndarray:
+    """Convert the annotations of a spacy document into a 2D array.
+    Each row corresponds to a token, and each column to a labelling
+    source. In other words, the value at (i,j) represents the prediction
+    of source j for token i. This prediction is expressed as the
+    index of the label in the labels.
+
+    NB:
+        - Sources should be a list of labelling sources. If empty, all sources
+            are employed.
+        - If `prefixes` are provided (e.g., [I, B, L]), it is assumed that the 
+            labels in `label_indices` contain the prefixes (e.g., I-PERSON,
+            B-PERSON).
+        - If `prefixes` are not provided, it is assumed that the labels in 
+            `label_indices` do not contain prefixes (e.g, PERSON). 
+        - We also assume the O is label is at position 0.
+    """
     if sources is None:
         sources = list(doc.spans.keys())
 
@@ -474,24 +550,36 @@ def spans_to_array(doc: Doc, labels: List[str],
 
     for source_index, source in enumerate(sources):
         for span in doc.spans.get(source, []):
-
             if span.label_ not in labels_without_prefix:
                 continue
 
-            # If the span is a single token, we can use U
-            if "U" in prefixes and len(span) == 1:
-                data[span.start, source_index] = label_indices["U-%s" % span.label_]
-                continue
+            if prefixes is None:
+                # Do not use prefix labels (e.g., use PER instead of 
+                # B-PER, I-PER, etc.) 
+                data[span.start, span.end-1] = label_indices[span.label_]
+            else:
+                # If the span is a single token, we can use U
+                if "U" in prefixes and len(span) == 1:
+                    data[span.start, source_index] = label_indices[
+                        "U-%s" % span.label_
+                    ]
+                    continue
 
-            # Otherwise, we use B, I and L
-            if "B" in prefixes:
-                data[span.start, source_index] = label_indices["B-%s" % span.label_]
-            if "I" in prefixes:
-                start_i = (span.start+1) if "B" in prefixes else span.start
-                end_i = (span.end-1) if "L" in prefixes else span.end
-                data[start_i:end_i, source_index] = label_indices["I-%s" % span.label_]
-            if "L" in prefixes:
-                data[span.end-1, source_index] = label_indices["L-%s" % span.label_]
+                # Otherwise, we use B, I and L
+                if "B" in prefixes:
+                    data[span.start, source_index] = label_indices[
+                        "B-%s" % span.label_
+                    ]
+                if "I" in prefixes:
+                    start_i = (span.start+1) if "B" in prefixes else span.start
+                    end_i = (span.end-1) if "L" in prefixes else span.end
+                    data[start_i:end_i, source_index] = label_indices[
+                        "I-%s" % span.label_
+                    ]
+                if "L" in prefixes:
+                    data[span.end-1, source_index] = label_indices[
+                        "L-%s" % span.label_
+                    ]
 
     return data
 
