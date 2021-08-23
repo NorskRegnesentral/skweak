@@ -74,91 +74,60 @@ class LFAnalysis:
         )
 
 
-    def label_overlap(self) -> Dict[str, float]:
+    def label_overlap(self) -> pandas.DataFrame:
         """ For each label, compute the fraction of tokens with at least 2 
-        LFs providing a non-null annotation.
+        LFs providing a non-null annotation. Overlap computed for labels 
+        that have 1+ instances in the corpus.
         """
-        return {}
+        result = {}
+        overlaps = self._overlapped_data_points()
+        for label_idx, indices in enumerate(self.label_row_indices):
+            label = self.labels[label_idx]
+            if label == 'O' or len(indices) == 0:
+                continue
+            result[label] = (np.sum(overlaps[indices]) / len(indices))
+        return pandas.DataFrame.from_dict(
+            result, orient='index', columns=['overlap']
+        )
 
 
-    def lf_conflicts(self) -> Dict[str, Dict[str, float]]:
+    def lf_conflicts(self) -> pandas.DataFrame:
         """ For each LF, compute the fraction of tokens that have conflicting
         non-null annotations overall and for each of its target labels.
 
         A conflict is defined as an instance where 2 LFs with different
-        target labels annotate the same token with a non-null label.
-
-        Example return object:
-        {
-            "lf1": {
-                "PER": 0.4,
-                "DATE" 0.0,
-            }, 
-            "lf2": {
-                "PER": 0.2,
-            }
-        }
-
+        target labels annotate the same token with a non-null label. LF
+        conflicts computed for labels that have 1+ instance in the corpus
+        from the given LF.
         """
-        return {}
+        return pandas.DataFrame()
 
 
-    def lf_coverages(self) -> Dict[str, Dict[str, float]]:
+    def lf_coverages(self) -> pandas.DataFrame:
         """ For each LF and its target labels, compute:
+
             # of tokens labeled by LF X with label Y
             -----------------------------------------
             # of distinct tokens labeled with label Y across all LFs
 
-        Example return object:
-        {
-            "lf1": {
-                "PER": 0.6,
-                "DATE" 1.0,
-            }, 
-            "lf2: {
-                "PER": 0.2,
-            }
-        }
         """
-        return {}
+        return pandas.DataFrame()
 
 
-    def lf_overlaps(self) -> Dict[str, Dict[str, float]]:
+    def lf_overlaps(self) -> pandas.DataFrame:
         """ For each LF and its target labels, compute the fraction of tokens
         that have another LF providing a non-null label.
-
-        Example return object:
-        {
-            "lf1": {
-                "PER": 0.6,
-                "DATE" 1.0,
-            }, 
-            "lf2": {
-                "PER": 0.2,
-            }
-        }
         """
-        return {}
+        return pandas.DataFrame()
 
 
     def lf_empirical_accuracies(self,
         Y:List[Doc],
         label_to_span_names:Dict[str, str]
-    ) -> Dict[str, Dict[str, float]]:
+    ) -> pandas.DataFrame:
         """ For each LF and its target labels, compute the empirical accuracy.
-
-        Example return object:
-        {
-            "lf1": {
-                "PER": 0.6,
-                "DATE" 1.0,
-            }, 
-            "lf2": {
-                "PER": 0.2,
-            }
-        }
         """
-        return {}
+        return pandas.DataFrame()
 
 
     # ----------------------
@@ -234,6 +203,18 @@ class LFAnalysis:
         )
 
 
+    def _covered_data_points(self) -> np.ndarray:
+        """Get indicator vector z where z_i = 1 if x_i is
+        labeled by at least one LF."""
+        return np.ravel(np.where(self._L_sparse.sum(axis=1) != 0, 1, 0))
+
+
+    def _overlapped_data_points(self) -> np.ndarray:
+        """Get indicator vector z where z_i = 1 if x_i i
+        labeled by more than one LF."""
+        return np.where(np.ravel((self._L_sparse != 0).sum(axis=1)) > 1, 1, 0)
+
+
     def _get_row_indices_with_labels(self) -> List[int]:
         """ Determine which rows have been assigned a given label by at least
         1 label functions.
@@ -242,6 +223,6 @@ class LFAnalysis:
         m = sparse.csr_matrix((cols, (self.L.ravel(), cols)),
                         shape=(self.L.max() + 1, self.L.size))
         return [
-            np.unravel_index(row.data, self.L.shape)[0]
+            np.unique(np.unravel_index(row.data, self.L.shape)[0])
             for row in m
         ]

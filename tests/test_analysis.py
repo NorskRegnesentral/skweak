@@ -3,7 +3,6 @@ import re
 
 from spacy.tokens import Span #type: ignore
 import pytest 
-import pandas as pd 
 
 from skweak.analysis import LFAnalysis
 
@@ -12,7 +11,8 @@ from skweak.analysis import LFAnalysis
 def analysis_doc(nlp):
     """ Generate a sample document with conflicts, agreements, and overlaps.
     """
-    spacy_doc = nlp(re.sub("\\s+", " ", """This is a test for Pierre Lison from the
+    spacy_doc = nlp(
+        re.sub("\\s+", " ", """This is a test for Pierre Lison from the
                      Norwegian Computing Center. Pierre is living in Oslo."""))
     spacy_doc.spans["name_1"] = [
         Span(spacy_doc, 5, 7, label="PERSON"),
@@ -65,7 +65,10 @@ def test_conflicts_with_strict_match_labels_with_prefixes(analysis_doc):
         U-GPE: 1 Conflict / 1 Token = 1.0
             (1 Conflict: Oslo - U-ORG/U-GPE)
     """
-    labels = ["O"] + ["%s-%s"%(p,l) for l in ["GPE", "NORP", "ORG", "PERSON"] for p in "BILU"]
+    labels = ["O"]
+    labels += [
+        "%s-%s"%(p,l) for l in ["GPE", "NORP", "ORG", "PERSON"] for p in "BILU"
+    ]
     lf_analysis = LFAnalysis(
         [analysis_doc],
         labels,
@@ -102,7 +105,10 @@ def test_conflicts_without_strict_match_labels_with_prefixes(analysis_doc):
         GPE: 1 Conflict / 1 Token = 1.0
             (1 Conflict : Oslo - ORG/GPE)
     """
-    labels = ["O"] + ["%s-%s"%(p,l) for l in ["GPE", "NORP", "ORG", "PERSON"] for p in "BILU"]
+    labels = ["O"]
+    labels += [
+        "%s-%s"%(p,l) for l in ["GPE", "NORP", "ORG", "PERSON"] for p in "BILU"
+    ]
     lf_analysis = LFAnalysis(
         [analysis_doc],
         labels,
@@ -145,3 +151,108 @@ def test_conflicts_without_strict_match_labels_without_prefixes(analysis_doc):
     assert result['conflict']['ORG'] == 0.5
     assert result['conflict']['NORP'] == 1.0
     assert result['conflict']['GPE'] == 1.0
+
+# ---------------------
+# LABEL OVERLAP TESTS
+# ---------------------
+def test_overlaps_with_strict_match_labels_with_prefixes(analysis_doc):
+    """ Test expected overlaps across below spans:
+  
+    Spans:
+        "name_1": Pierre (B-PERSON), Lison (L-PERSON), Pierre(U-PERSON)
+        "name_2": Pierre (B-PERSON), Lison (L-PERSON)
+        "org_1": Norwegian (B-ORG), Computing (I-ORG), Center(L-ORG)
+        "org_2": Norwegian (B-ORG), Computing (L-ORG), Oslo (U-ORG)
+        "place_2": Norwegian (U-NORP), Oslo (U-GPE)
+
+    Overlaps:
+        B-PERSON: 1 Overlap / 1 Token = 1.0
+        L-PERSON: 1 Overlap / 1 Token = 1.0
+        U-PERSON: 0 Overlap / 1 Token = 0.0
+        B-ORG: 1 Overlap / 1 Token = 1.0
+        I-ORG: 1 Overlap / 1 Token = 1.0
+        L-ORG: 1 Overlap / 2 Tokens = 0.5
+        U-ORG: 1 Overlap / 1 Token = 1.0
+        U-NORP: 1 Overlap / 1 Token = 1.0
+        U-GPE: 1 Overlap / 1 Token = 1.0
+    """
+    labels = ["O"]
+    labels += [
+        "%s-%s"%(p,l) for l in ["GPE", "NORP", "ORG", "PERSON"] for p in "BILU"
+    ]
+    lf_analysis = LFAnalysis(
+        [analysis_doc],
+        labels,
+        strict_match=True
+    )
+    result = lf_analysis.label_overlap()
+    assert result['overlap']['B-PERSON'] == 1.0
+    assert result['overlap']['L-PERSON'] == 1.0
+    assert result['overlap']['U-PERSON'] == 0.0
+    assert result['overlap']['B-ORG'] == 1.0
+    assert result['overlap']['I-ORG'] == 1.0
+    assert result['overlap']['L-ORG'] == 0.5
+    assert result['overlap']['U-ORG'] == 1.0
+    assert result['overlap']['U-NORP'] == 1.0
+    assert result['overlap']['U-GPE'] == 1.0
+
+
+def test_overlaps_without_strict_match_labels_with_prefixes(analysis_doc):
+    """ Test expected overlaps across below spans:
+  
+    Spans:
+        "name_1": Pierre (PERSON), Lison (PERSON), Pierre(PERSON)
+        "name_2": Pierre (PERSON), Lison (PERSON)
+        "org_1": Norwegian (ORG), Computing (ORG), Center(ORG)
+        "org_2": Norwegian (ORG), Computing (ORG), Oslo (ORG)
+        "place_2": Norwegian (NORP), Oslo (GPE)
+
+    Overlaps:
+        PERSON: 2 Overlaps / 3 Tokens = 0.66
+        ORG: 3 Overlaps / 4 Tokens = 0.75
+        NORP: 1 Overlap / 1 Token = 1.0
+        GPE: 1 Overlap / 1 Token = 1.0
+    """
+    labels = ["O"]
+    labels += [
+        "%s-%s"%(p,l) for l in ["GPE", "NORP", "ORG", "PERSON"] for p in "BILU"
+    ]
+    lf_analysis = LFAnalysis(
+        [analysis_doc],
+        labels,
+        strict_match=False
+    )
+    result = lf_analysis.label_overlap()
+    assert result['overlap']['PERSON'] == 2/3
+    assert result['overlap']['ORG'] == 3/4
+    assert result['overlap']['NORP'] == 1.0
+    assert result['overlap']['GPE'] == 1.0
+
+
+def test_overlaps_without_strict_match_labels_without_prefixes(analysis_doc):
+    """ Test expected overlaps across below spans:
+  
+    Spans:
+        "name_1": Pierre (PERSON), Lison (PERSON), Pierre(PERSON)
+        "name_2": Pierre (PERSON), Lison (PERSON)
+        "org_1": Norwegian (ORG), Computing (ORG), Center(ORG)
+        "org_2": Norwegian (ORG), Computing (ORG), Oslo (ORG)
+        "place_2": Norwegian (NORP), Oslo (GPE)
+
+    Overlaps:
+        PERSON: 2 Overlaps / 3 Tokens = 0.66
+        ORG: 3 Overlaps / 4 Tokens = 0.75
+        NORP: 1 Overlap / 1 Token = 1.0
+        GPE: 1 Overlap / 1 Token = 1.0
+    """
+    labels = ["O", "GPE", "NORP", "ORG", "PERSON"]
+    lf_analysis = LFAnalysis(
+        [analysis_doc],
+        labels,
+        strict_match=False
+    )
+    result = lf_analysis.label_overlap()
+    assert result['overlap']['PERSON'] == 2/3
+    assert result['overlap']['ORG'] == 3/4
+    assert result['overlap']['NORP'] == 1.0
+    assert result['overlap']['GPE'] == 1.0
