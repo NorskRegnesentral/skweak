@@ -457,14 +457,14 @@ def spans_to_array(
     NB: we assume the labels use either IO/BIO/BILUO, and that the
     O label is at position 0.
     """
-    label_indices, prefixes, labels_without_prefix, = _index_labels(
+    label2idx, prefixes, labels_without_prefix, = _index_labels(
         original_labels=labels,
         strip_prefixes=False,
     )
     return _spans_to_array(
         doc, 
         sources,
-        label_indices,
+        label2idx,
         labels_without_prefix,
         prefixes
     )
@@ -514,15 +514,15 @@ def _index_labels(
                 labels.append(original_label)
 
     # Generate mapping of labels to label indices
-    label_indices = {label: i for i, label in enumerate(labels)}
+    label2idx = {label: i for i, label in enumerate(labels)}
 
-    return label_indices, prefixes, labels_without_prefix
+    return label2idx, prefixes, labels_without_prefix
 
 
 def _spans_to_array(
     doc: Doc,
     sources: List[str],
-    label_indices: Dict[str, int],
+    label2idx: Dict[str, int],
     labels_without_prefix: Set[str],
     prefixes: Optional[Set[str]] = None,
 ) -> np.ndarray:
@@ -536,10 +536,10 @@ def _spans_to_array(
         - Sources should be a list of labelling sources. If empty, all sources
             are employed.
         - If `prefixes` are provided (e.g., [I, B, L]), it is assumed that the 
-            labels in `label_indices` contain the prefixes (e.g., I-PERSON,
+            labels in `label2idx` contain the prefixes (e.g., I-PERSON,
             B-PERSON).
         - If `prefixes` are not provided, it is assumed that the labels in 
-            `label_indices` do not contain prefixes (e.g, PERSON). 
+            `label2idx` do not contain prefixes (e.g, PERSON). 
         - We also assume the O is label is at position 0.
     """
     if sources is None:
@@ -556,28 +556,30 @@ def _spans_to_array(
             if prefixes is None:
                 # Do not use prefix labels (e.g., use PER instead of 
                 # B-PER, I-PER, etc.) 
-                data[span.start, span.end-1] = label_indices[span.label_]
+                data[span.start:span.end, source_index] = label2idx[
+                    span.label_
+                ]
             else:
                 # If the span is a single token, we can use U
                 if "U" in prefixes and len(span) == 1:
-                    data[span.start, source_index] = label_indices[
+                    data[span.start, source_index] = label2idx[
                         "U-%s" % span.label_
                     ]
                     continue
 
                 # Otherwise, we use B, I and L
                 if "B" in prefixes:
-                    data[span.start, source_index] = label_indices[
+                    data[span.start, source_index] = label2idx[
                         "B-%s" % span.label_
                     ]
                 if "I" in prefixes:
                     start_i = (span.start+1) if "B" in prefixes else span.start
                     end_i = (span.end-1) if "L" in prefixes else span.end
-                    data[start_i:end_i, source_index] = label_indices[
+                    data[start_i:end_i, source_index] = label2idx[
                         "I-%s" % span.label_
                     ]
                 if "L" in prefixes:
-                    data[span.end-1, source_index] = label_indices[
+                    data[span.end-1, source_index] = label2idx[
                         "L-%s" % span.label_
                     ]
 

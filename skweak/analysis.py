@@ -1,36 +1,50 @@
-from collections import defaultdict
-from skweak.base import CombinedAnnotator
-from typing import DefaultDict, Dict, List, Optional, Set
+from skweak import utils
+from typing import Dict, List, Optional, Set, Tuple
+
+import numpy as np
+import pandas
+from scipy import sparse
 from spacy.tokens import Doc
 
 class LFAnalysis:
     """ Run analyses on a list of spaCy Documents (corpus) to which LFs have
-    been applied.
+    been applied. Analyses are conducted at a token level.
     """
 
     def __init__(
         self,
         corpus:List[Doc],
         labels:List[str],
-        combined_annotator:CombinedAnnotator,
-        excluded_lf_names:Optional[List[str]] = None,
+        sources:Optional[List[str]] = None,
+        strict_match:bool = False,
     ):
         """ Initializes LFAnalysis tool on a list of spaCY documents to which
-        the CombinedAnnotator has been applied.
-        
-        If there are annotators that should be excluded from analysis
-        these can be optionally provided.
+        the sources (LFs) have been applied.
 
-        If there are labels for which no spans have been annotated an
-        error message shall be printed, but no Exception shall be thrown.
+        If sources are provided, this subset of sources shall be used
+        in the LF Analysis. Otherwise, the union of all sources
+        (across documents) are used.
+
+        If `strict_match` is True, labels such as I-DATE and B-DATE shall be 
+        considered unique and different labels. If `strict_match` is False,
+        labels such as I-DATE and B-DATE will be normalized to a single 
+        label DATE. Note `strict_match` should only be set as True, when
+        using labels with BIOLU format. 
         """
         self.corpus = corpus
-        self.labels = labels
-        self.lf_names = self._index_lfs(combined_annotator,excluded_lf_names)
-        self.labels_to_lf_names = self._map_labels_to_lfs()
+        self.sources = self._get_corpus_sources(sources)
+        (
+            self.labels,
+            self.label2idx,
+            self.prefixes,
+            self.labels_without_prefix
+        ) = self._get_token_level_labels(labels, strict_match)
+        self.L = self._corpus_to_token_array(strict_match)
+        self._L_sparse = sparse.csr_matrix(self.L)
+        self.label_row_indices = self._get_row_indices_with_labels()
 
 
-    def label_conflict(self) -> Dict[str, float]:
+    def label_conflict(self) -> pandas.DataFrame:
         """ For each label, compute the fraction of tokens with conflicting
         non-null labels. 
         
@@ -45,21 +59,19 @@ class LFAnalysis:
         label. For example, a conflict would not be registered if: 
             - LF1 returns "ORG" for the token "Apple"
             - LF2 returns "O" (null-label) for the token "Apple"
-        """
-        return {}
 
-
-    def label_agreement(self) -> Dict[str, float]:
-        """ For each label, compute the fraction of tokens with agreeing
-        non-null labels. 
-        
-        An agreement is defined as an instance where 2 LFs that annotate 
-        the same token with the same non-null labels. As an example, an
-        agreement would be detected if:
-            - LF1 returns "ORG" for the token "Apple"
-            - LF2 returns "ORG" for the token "Apple"
+        Conflicts are computed for labels that have 1+ instances in the corpus.
         """
-        return {}
+        result = {}
+        conflicts = self._conflicted_data_points()
+        for label_idx, indices in enumerate(self.label_row_indices):
+            label = self.labels[label_idx]
+            if label == 'O' or len(indices) == 0:
+                continue
+            result[label] = (np.sum(conflicts[indices]) / len(indices))
+        return pandas.DataFrame.from_dict(
+            result, orient='index', columns=['conflict']
+        )
 
 
     def label_overlap(self) -> Dict[str, float]:
@@ -69,9 +81,7 @@ class LFAnalysis:
         return {}
 
 
-    def lf_conflicts(
-        self
-    )-> Dict[str, Dict[str, float]]:
+    def lf_conflicts(self) -> Dict[str, Dict[str, float]]:
         """ For each LF, compute the fraction of tokens that have conflicting
         non-null annotations overall and for each of its target labels.
 
@@ -93,13 +103,11 @@ class LFAnalysis:
         return {}
 
 
-    def lf_agreements(self) -> Dict[str, Dict[str, float]]:
-        """ For each LF and its target labels, compute the fraction of tokens
-        that have agreeing non-null annotations from another LF for each 
-        of its target labels.
-
-        An agreement is defined as an instance where 2 LFs with the same
-        target labels annotate the same token with a non-null label.
+    def lf_coverages(self) -> Dict[str, Dict[str, float]]:
+        """ For each LF and its target labels, compute:
+            # of tokens labeled by LF X with label Y
+            -----------------------------------------
+            # of distinct tokens labeled with label Y across all LFs
 
         Example return object:
         {
@@ -117,7 +125,7 @@ class LFAnalysis:
 
     def lf_overlaps(self) -> Dict[str, Dict[str, float]]:
         """ For each LF and its target labels, compute the fraction of tokens
-        that have another LF providings a non-null label.
+        that have another LF providing a non-null label.
 
         Example return object:
         {
@@ -153,59 +161,87 @@ class LFAnalysis:
         return {}
 
 
-    def lf_labels(self) -> DefaultDict[Set[str]]:
-        """ Infer the labels of each LF based on the evidence in the corpus.
-        """
-        lf_names_to_labels = defaultdict(set)
-        for label, lf_names in self.labels_to_lf_names.items():
-            for lf_name in lf_names:
-                lf_names[lf_name].add(label)
-        return lf_names_to_labels
-
-
-    def _index_lfs(
+    # ----------------------
+    # Initialization Helpers
+    # ----------------------
+    def _get_token_level_labels(
         self,
-        combined_annotator:CombinedAnnotator,
-        excluded_lf_names:Optional[List[str]] = None
-    ):
-        """ Index LFs from CombinedAnnotator except those explicitly excluded.
+        original_labels:List[str],
+        strict_match: bool
+    ) -> Tuple[List[str], Dict[str, int], Set[str], Set[str]]:
+        """ Generate helper dictionaries that normalize and index labels
+        used for token-level analyses.
         """
-        self.lf_names:Set[str] = set()
-        for lf in combined_annotator.annotators:
-            if excluded_lf_names is not None and lf.name in excluded_lf_names:
-                continue
-            else:
-                self._validate_lf_across_corpus(lf.name)
-                self.lf_names.add(lf.name)
-
-
-    def _map_labels_to_lfs(self):
-        """ Generate mapping from labels to LFs, given corpus of docs annotated
-            by LFs. Raise a warning if there is a label selected for analysis
-            that has never been seen in the annotated dataset. 
-        """
-        self.labels_to_lf_names = defaultdict(set)
-        for doc in self.corpus:
-            for lf_name in self.lf_names:
-                for span in doc.spans[lf_name]:
-                    self.labels_to_lf_names[span.label_].add(lf_name)
+        # 0-th label should be 'O' (null token) for token level analyses
+        if 'O' not in original_labels:
+            original_labels.insert(0, 'O')
+        elif original_labels[0] != 'O':
+            original_labels.remove('O')
+            original_labels.insert(0, 'O')
         
-        unused_labels = []
-        for label in self.labels:
-            if len(self.labels_to_lf_names) == 0:
-                unused_labels.append(label)
-        print(
-            f"{unused_labels} labels were not found"
-            "in your corpus of documents"
+        # Normalize labels if strict matching is disabled (e.g., convert
+        # I-PER and B-PER to PER). Also construct mapping of label namess
+        # to indices, identify prefixes in original label set, and 
+        # labels without prefixes according to original label set. 
+        label2idx, prefixes, labels_without_prefix = utils._index_labels(
+            original_labels,
+            not strict_match
         )
 
-    def _validate_lf_across_corpus(self, name:str):
-        """ Check whether a LF has been applied to every document in a
-            corpus. 
+        # Generate mapping of index to label name
+        labels = [label for label in label2idx.keys()]
+        return labels, label2idx, prefixes, labels_without_prefix
+
+
+    def _get_corpus_sources(self, sources:Optional[List[str]]) -> List[str]:
+        """ Determine sources for analysis. If no sources are provided, sources
+        is computed as the union of sources used across the corpus of Docs.
         """
-        for d in self.corpus:
-            if name not in d.spans.keys():
-                raise ValueError(
-                    f"{name} LF is missing from one"
-                    "or more of documents in the corpus"
-                )
+        corpus_sources = set()
+        if sources is None:
+            for doc in self.corpus:
+                corpus_sources.update(set(doc.spans.keys()))
+            return list(corpus_sources)
+        else:
+            return list(set(sources))
+
+
+    def _corpus_to_token_array(self, strict_match:bool) -> np.ndarray:
+        """ Convert corpus to a matrix of dimensions:
+        (# of tokens in corpus, # sources)
+        """
+        return np.concatenate([
+            utils._spans_to_array(
+                doc,
+                self.sources,
+                self.label2idx,
+                self.labels_without_prefix,
+                self.prefixes if strict_match else None
+            ) for doc in self.corpus
+        ])
+
+    # ----------------
+    # Analysis Helpers
+    # ----------------
+    def _conflicted_data_points(self) -> np.ndarray:
+        """Get indicator vector z where z_i = 1 if x_i is labeled differently
+        by two LFs."""
+        m = sparse.diags(np.ravel(self._L_sparse.max(axis=1).todense()))
+        return np.ravel(
+            np.max(m @ (self._L_sparse != 0) != self._L_sparse, axis=1)
+            .astype(int)
+            .todense()
+        )
+
+
+    def _get_row_indices_with_labels(self) -> List[int]:
+        """ Determine which rows have been assigned a given label by at least
+        1 label functions.
+        """
+        cols = np.arange(self.L.size)
+        m = sparse.csr_matrix((cols, (self.L.ravel(), cols)),
+                        shape=(self.L.max() + 1, self.L.size))
+        return [
+            np.unravel_index(row.data, self.L.shape)[0]
+            for row in m
+        ]
