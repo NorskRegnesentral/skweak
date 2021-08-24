@@ -559,3 +559,109 @@ def test_lf_coverage_without_strict_match_labels_without_prefixes(analysis_doc):
     assert result['place_1']['ORG'] == 0.0
     assert result['place_1']['NORP'] == 1.0
     assert result['place_1']['GPE'] == 1.0
+
+
+# ----------------
+# LF OVERLAP TESTS
+# -----------------
+def test_lf_overlaps_with_strict_match_labels_with_prefixes(analysis_doc):
+    """ Test expected overlaps across below spans:
+  
+    Spans:
+        "name_1": Pierre (B-PERSON), Lison (L-PERSON), Pierre(U-PERSON)
+        "name_2": Pierre (B-PERSON), Lison (L-PERSON)
+        "org_1": Norwegian (B-ORG), Computing (I-ORG), Center(L-ORG)
+        "org_2": Norwegian (B-ORG), Computing (L-ORG), Oslo (U-ORG)
+        "place_1": Norwegian (U-NORP), Oslo (U-GPE)
+
+    Overlaps:
+        "name_1": 2/3
+        "name_2": 2/2
+        "org_1": 2/3
+        "org_2": 3/3
+        "place_1": 2/2
+  
+    """
+    labels = ["O"]
+    labels += [
+        "%s-%s"%(p,l) for l in ["GPE", "NORP", "ORG", "PERSON"] for p in "BILU"
+    ]
+    lf_analysis = LFAnalysis(
+        [analysis_doc],
+        labels,
+        strict_match=True
+    )
+    result = lf_analysis.lf_overlaps()
+    assert result['lf_overlap']['name_1'] == 2/3
+    assert result['lf_overlap']['name_2'] == 1.0
+    assert result['lf_overlap']['org_1'] == 2/3
+    assert result['lf_overlap']['org_2'] == 1.0
+    assert result['lf_overlap']['place_1'] == 1.0
+
+
+def test_lf_overlaps_without_strict_match_labels_without_prefixes(analysis_doc):
+    """ Test expected overlaps across below spans:
+  
+    Spans:
+        "name_1": Pierre (B-PERSON), Lison (L-PERSON), Pierre(U-PERSON)
+        "name_2": Pierre (B-PERSON), Lison (L-PERSON)
+        "org_1": Norwegian (B-ORG), Computing (I-ORG), Center(L-ORG)
+        "org_2": Norwegian (B-ORG), Computing (L-ORG), Oslo (U-ORG)
+        "place_1": Norwegian (U-NORP), Oslo (U-GPE)
+
+    Overlaps:
+        "name_1": 2/3
+        "name_2": 2/2
+        "org_1": 2/3
+        "org_2": 3/3
+        "place_1": 2/2
+  
+    """
+    labels = ["O"]
+    labels += [
+        "%s-%s"%(p,l) for l in ["GPE", "NORP", "ORG", "PERSON"] for p in "BILU"
+    ]
+    lf_analysis = LFAnalysis(
+        [analysis_doc],
+        labels,
+        strict_match=False
+    )
+    result = lf_analysis.lf_overlaps()
+    assert result['lf_overlap']['name_1'] == 2/3
+    assert result['lf_overlap']['name_2'] == 1.0
+    assert result['lf_overlap']['org_1'] == 2/3
+    assert result['lf_overlap']['org_2'] == 1.0
+    assert result['lf_overlap']['place_1'] == 1.0
+
+
+
+def test_lf_overlaps_without_strict_match_labels_with_prefixes(analysis_doc):
+    """ Test expected overlaps across below spans:
+  
+    Spans:
+        "name_1": Pierre (B-PERSON), Lison (L-PERSON), Pierre(U-PERSON)
+        "name_2": Pierre (B-PERSON), Lison (L-PERSON)
+        "org_1": Norwegian (B-ORG), Computing (I-ORG), Center(L-ORG)
+        "org_2": Norwegian (B-ORG), Computing (L-ORG), Oslo (U-ORG)
+        "place_1": Norwegian (U-NORP), Oslo (U-GPE)
+
+    Overlaps:
+        "name_1": 2/3
+        "name_2": 2/2
+        "org_1": 2/3
+        "org_2": 3/3
+        "place_1": 2/2
+  
+    """
+    labels = ["O", "GPE", "NORP", "ORG", "PERSON"]
+    lf_analysis = LFAnalysis(
+        [analysis_doc],
+        labels,
+        strict_match=False
+    )
+    result = lf_analysis.lf_overlaps()
+    assert result['lf_overlap']['name_1'] == 2/3
+    assert result['lf_overlap']['name_2'] == 1.0
+    assert result['lf_overlap']['org_1'] == 2/3
+    assert result['lf_overlap']['org_2'] == 1.0
+    assert result['lf_overlap']['place_1'] == 1.0

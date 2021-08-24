@@ -2,6 +2,7 @@ from collections import defaultdict
 from typing import Dict, List, Optional, Set, Tuple
 
 import numpy as np
+from numpy.lib.index_tricks import nd_grid
 import pandas
 from scipy import sparse
 import scipy
@@ -48,6 +49,23 @@ class LFAnalysis:
         self.label_row_indices = self._get_row_indices_with_labels()
 
 
+    def label_overlap(self) -> pandas.DataFrame:
+        """ For each label, compute the fraction of tokens with at least 2 
+        LFs providing a non-null annotation. Overlap computed for labels 
+        that have 1+ instances in the corpus.
+        """
+        result = {}
+        overlaps = self._overlapped_data_points()
+        for label_idx, indices in enumerate(self.label_row_indices):
+            label = self.labels[label_idx]
+            if label == 'O' or len(indices) == 0:
+                continue
+            result[label] = (np.sum(overlaps[indices]) / len(indices))
+        return pandas.DataFrame.from_dict(
+            result, orient='index', columns=['overlap']
+        )
+
+
     def label_conflict(self) -> pandas.DataFrame:
         """ For each label, compute the fraction of tokens with conflicting
         non-null labels. 
@@ -78,23 +96,6 @@ class LFAnalysis:
         )
 
 
-    def label_overlap(self) -> pandas.DataFrame:
-        """ For each label, compute the fraction of tokens with at least 2 
-        LFs providing a non-null annotation. Overlap computed for labels 
-        that have 1+ instances in the corpus.
-        """
-        result = {}
-        overlaps = self._overlapped_data_points()
-        for label_idx, indices in enumerate(self.label_row_indices):
-            label = self.labels[label_idx]
-            if label == 'O' or len(indices) == 0:
-                continue
-            result[label] = (np.sum(overlaps[indices]) / len(indices))
-        return pandas.DataFrame.from_dict(
-            result, orient='index', columns=['overlap']
-        )
-
-
     def lf_target_labels(self) -> Dict[str, List[int]]:
         """Infer the target labels of each LF based on evidence in the
         label matrix.
@@ -103,6 +104,7 @@ class LFAnalysis:
             self.sources[i]: sorted(list(set(self._L_sparse[:, i].data)))
             for i in range(self._L_sparse.shape[1])
         }
+
 
     def lf_coverages(self) -> pandas.DataFrame:
         """ For each LF and its target labels (i.e. labels that it
@@ -123,6 +125,23 @@ class LFAnalysis:
             result, orient='index', columns=self.sources)
 
 
+    def lf_overlaps(self) -> pandas.DataFrame:
+        """ For each LF, compute the fraction of tokens that have another LF
+        providing a non-null label.
+        """
+        L_sparse_indicator = (self._L_sparse != 0)
+        overlaps = (
+            L_sparse_indicator.T
+            @ self._overlapped_data_points()
+            / L_sparse_indicator.sum(axis=0)
+        )
+        return pandas.DataFrame(
+            overlaps.T,
+            columns=['lf_overlap'],
+            index=self.sources
+        )
+
+
     def lf_conflicts(self) -> pandas.DataFrame:
         """ For each LF, compute the fraction of tokens that have conflicting
         non-null annotations overall and for each of its target labels.
@@ -131,13 +150,6 @@ class LFAnalysis:
         target labels annotate the same token with a non-null label. LF
         conflicts computed for labels that have 1+ instance in the corpus
         from the given LF.
-        """
-        return pandas.DataFrame()
-
-
-    def lf_overlaps(self) -> pandas.DataFrame:
-        """ For each LF and its target labels, compute the fraction of tokens
-        that have another LF providing a non-null label.
         """
         return pandas.DataFrame()
 
