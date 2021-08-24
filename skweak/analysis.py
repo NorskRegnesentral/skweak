@@ -1,11 +1,9 @@
-from collections import defaultdict
-from typing import Dict, List, Optional, Set, Tuple
+from operator import imod
+from typing import Dict, List, Optional, Tuple, Set
 
 import numpy as np
-from numpy.lib.index_tricks import nd_grid
 import pandas
 from scipy import sparse
-import scipy
 from spacy.tokens import Doc
 
 from skweak import utils
@@ -148,10 +146,29 @@ class LFAnalysis:
 
         A conflict is defined as an instance where 2 LFs with different
         target labels annotate the same token with a non-null label. LF
-        conflicts computed for labels that have 1+ instance in the corpus
         from the given LF.
         """
-        return pandas.DataFrame()
+        result = {}
+        conflicts = self._conflicted_data_points()
+        for label_idx, indices in enumerate(self.label_row_indices):
+            label = self.labels[label_idx]
+            if label == 'O' or len(indices) == 0:
+                continue
+            with np.errstate(divide='ignore',invalid='ignore'):
+                # Select rows that contain the given label and then create
+                # and indicator matrix for the label (e.g., 1 if 
+                # label was applied by LF)
+                x = (self._L_sparse[indices] == label_idx)
+
+                # For each LF identify the number of times the label has
+                # been selected, during a conflict and divide by the 
+                # number of times that the label was assigned y the 
+                # given label function
+                lf_conflicts = (x.T @ conflicts[indices]).T / x.sum(axis=0)
+                result[label] = np.ravel(np.nan_to_num(lf_conflicts))
+        
+        return pandas.DataFrame.from_dict(
+            result, orient='index', columns=self.sources)
 
 
     def lf_empirical_accuracies(self,
@@ -221,6 +238,7 @@ class LFAnalysis:
                 self.prefixes if strict_match else None
             ) for doc in self.corpus
         ])
+
 
     # ----------------
     # Analysis Helpers
