@@ -2,7 +2,8 @@
 import re
 
 from spacy.tokens import Span #type: ignore
-import pytest 
+import pytest
+from skweak import analysis 
 
 from skweak.analysis import LFAnalysis
 
@@ -256,6 +257,35 @@ def test_overlaps_without_strict_match_labels_without_prefixes(analysis_doc):
     assert result['overlap']['ORG'] == 3/4
     assert result['overlap']['NORP'] == 1.0
     assert result['overlap']['GPE'] == 1.0
+
+# ----------------
+# LF TARGETS TESTS
+# ----------------
+def test_lf_targets(analysis_doc):
+    """ Test expected targets across below spans:
+    Spans:
+        "name_1": Pierre (PERSON), Lison (PERSON), Pierre(PERSON)
+        "name_2": Pierre (PERSON), Lison (PERSON)
+        "org_1": Norwegian (ORG), Computing (ORG), Center(ORG)
+        "org_2": Norwegian (ORG), Computing (ORG), Oslo (ORG)
+        "place_1": Norwegian (NORP), Oslo (GPE)
+    """
+    labels = ["O", "GPE", "NORP", "ORG", "PERSON"]
+    lf_analysis = LFAnalysis(
+        [analysis_doc],
+        labels,
+        strict_match=False
+    )
+    result = lf_analysis.lf_target_labels()
+
+    assert result["name_1"] == [lf_analysis.label2idx["PERSON"]]
+    assert result["name_2"] == [lf_analysis.label2idx["PERSON"]]
+    assert result["org_1"] == [lf_analysis.label2idx["ORG"]]
+    assert result["org_2"] == [lf_analysis.label2idx["ORG"]]
+    assert set(result["place_1"]) == set([
+        lf_analysis.label2idx["NORP"],
+        lf_analysis.label2idx["GPE"]])
+
 
 
 # ------------------

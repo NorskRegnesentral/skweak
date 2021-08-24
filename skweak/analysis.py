@@ -95,6 +95,15 @@ class LFAnalysis:
         )
 
 
+    def lf_target_labels(self) -> Dict[str, List[int]]:
+        """Infer the target labels of each LF based on evidence in the
+        label matrix.
+        """
+        return {
+            self.sources[i]: sorted(list(set(self._L_sparse[:, i].data)))
+            for i in range(self._L_sparse.shape[1])
+        }
+
     def lf_coverages(self) -> pandas.DataFrame:
         """ For each LF and its target labels (i.e. labels that it
         assigns 1+ times across the corpus of Docs), compute:
@@ -231,13 +240,6 @@ class LFAnalysis:
         """Get indicator vector z where z_i = 1 if x_i i
         labeled by more than one LF."""
         return np.where(np.ravel((self._L_sparse != 0).sum(axis=1)) > 1, 1, 0)
-
-
-    def _infer_target_labels(self) -> np.ndarray:
-        """Infer the target labels each of the sources, by examining the 
-        labels in the corpus of Documents.
-        """
-        return np.unique(self.L, axis=0)
 
 
     def _get_row_indices_with_labels(self) -> List[int]:
