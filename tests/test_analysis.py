@@ -28,7 +28,7 @@ def analysis_doc(nlp):
         Span(spacy_doc, 9, 11, label="ORG"), 
         Span(spacy_doc, 17, 18, label="ORG"),
     ]
-    spacy_doc.spans["place_2"] = [
+    spacy_doc.spans["place_1"] = [
         Span(spacy_doc, 9, 10, label="NORP"),
         Span(spacy_doc, 17, 18, label="GPE")
     ]
@@ -46,7 +46,7 @@ def test_conflicts_with_strict_match_labels_with_prefixes(analysis_doc):
         "name_2": Pierre (B-PERSON), Lison (L-PERSON)
         "org_1": Norwegian (B-ORG), Computing (I-ORG), Center(L-ORG)
         "org_2": Norwegian (B-ORG), Computing (L-ORG), Oslo (U-ORG)
-        "place_2": Norwegian (U-NORP), Oslo (U-GPE)
+        "place_1": Norwegian (U-NORP), Oslo (U-GPE)
 
     Conflicts:
         B-PERSON: 0 Conflicts / 1 Token = 0.0
@@ -94,7 +94,7 @@ def test_conflicts_without_strict_match_labels_with_prefixes(analysis_doc):
         "name_2": Pierre (PERSON), Lison (PERSON)
         "org_1": Norwegian (ORG), Computing (ORG), Center(ORG)
         "org_2": Norwegian (ORG), Computing (ORG), Oslo (ORG)
-        "place_2": Norwegian (NORP), Oslo (GPE)
+        "place_1": Norwegian (NORP), Oslo (GPE)
 
     Conflicts:
         PERSON: 0 Conflicts / 3 Tokens = 0.0
@@ -116,7 +116,7 @@ def test_conflicts_without_strict_match_labels_with_prefixes(analysis_doc):
     )
     result = lf_analysis.label_conflict()
     assert result['conflict']['PERSON'] == 0.0
-    assert result['conflict']['ORG'] == 0.5
+    assert result['conflict']['ORG'] == 2/4
     assert result['conflict']['NORP'] == 1.0
     assert result['conflict']['GPE'] == 1.0
 
@@ -129,7 +129,7 @@ def test_conflicts_without_strict_match_labels_without_prefixes(analysis_doc):
         "name_2": Pierre (PERSON), Lison (PERSON)
         "org_1": Norwegian (ORG), Computing (ORG), Center(ORG)
         "org_2": Norwegian (ORG), Computing (ORG), Oslo (ORG)
-        "place_2": Norwegian (NORP), Oslo (GPE)
+        "place_1": Norwegian (NORP), Oslo (GPE)
 
     Conflicts:
         PERSON: 0 Conflicts / 3 Tokens = 0.0
@@ -148,7 +148,7 @@ def test_conflicts_without_strict_match_labels_without_prefixes(analysis_doc):
     )
     result = lf_analysis.label_conflict()
     assert result['conflict']['PERSON'] == 0.0
-    assert result['conflict']['ORG'] == 0.5
+    assert result['conflict']['ORG'] == 2/4
     assert result['conflict']['NORP'] == 1.0
     assert result['conflict']['GPE'] == 1.0
 
@@ -163,7 +163,7 @@ def test_overlaps_with_strict_match_labels_with_prefixes(analysis_doc):
         "name_2": Pierre (B-PERSON), Lison (L-PERSON)
         "org_1": Norwegian (B-ORG), Computing (I-ORG), Center(L-ORG)
         "org_2": Norwegian (B-ORG), Computing (L-ORG), Oslo (U-ORG)
-        "place_2": Norwegian (U-NORP), Oslo (U-GPE)
+        "place_1": Norwegian (U-NORP), Oslo (U-GPE)
 
     Overlaps:
         B-PERSON: 1 Overlap / 1 Token = 1.0
@@ -191,7 +191,7 @@ def test_overlaps_with_strict_match_labels_with_prefixes(analysis_doc):
     assert result['overlap']['U-PERSON'] == 0.0
     assert result['overlap']['B-ORG'] == 1.0
     assert result['overlap']['I-ORG'] == 1.0
-    assert result['overlap']['L-ORG'] == 0.5
+    assert result['overlap']['L-ORG'] == 1/2
     assert result['overlap']['U-ORG'] == 1.0
     assert result['overlap']['U-NORP'] == 1.0
     assert result['overlap']['U-GPE'] == 1.0
@@ -205,7 +205,7 @@ def test_overlaps_without_strict_match_labels_with_prefixes(analysis_doc):
         "name_2": Pierre (PERSON), Lison (PERSON)
         "org_1": Norwegian (ORG), Computing (ORG), Center(ORG)
         "org_2": Norwegian (ORG), Computing (ORG), Oslo (ORG)
-        "place_2": Norwegian (NORP), Oslo (GPE)
+        "place_1": Norwegian (NORP), Oslo (GPE)
 
     Overlaps:
         PERSON: 2 Overlaps / 3 Tokens = 0.66
@@ -237,7 +237,7 @@ def test_overlaps_without_strict_match_labels_without_prefixes(analysis_doc):
         "name_2": Pierre (PERSON), Lison (PERSON)
         "org_1": Norwegian (ORG), Computing (ORG), Center(ORG)
         "org_2": Norwegian (ORG), Computing (ORG), Oslo (ORG)
-        "place_2": Norwegian (NORP), Oslo (GPE)
+        "place_1": Norwegian (NORP), Oslo (GPE)
 
     Overlaps:
         PERSON: 2 Overlaps / 3 Tokens = 0.66
@@ -256,3 +256,276 @@ def test_overlaps_without_strict_match_labels_without_prefixes(analysis_doc):
     assert result['overlap']['ORG'] == 3/4
     assert result['overlap']['NORP'] == 1.0
     assert result['overlap']['GPE'] == 1.0
+
+
+# ------------------
+# LF COVERAGE TESTS
+# ------------------
+def test_lf_coverage_with_strict_match_labels_with_prefixes(analysis_doc):
+    """ Test expected overlaps across below spans:
+  
+    Spans:
+        "name_1": Pierre (B-PERSON), Lison (L-PERSON), Pierre(U-PERSON)
+        "name_2": Pierre (B-PERSON), Lison (L-PERSON)
+        "org_1": Norwegian (B-ORG), Computing (I-ORG), Center(L-ORG)
+        "org_2": Norwegian (B-ORG), Computing (L-ORG), Oslo (U-ORG)
+        "place_1": Norwegian (U-NORP), Oslo (U-GPE)
+
+    Coverage:
+        B-PERSON: 
+            "name_1": 1/1
+            "name_2": 1/1
+            "org_1": 0/1
+            "org_2": 0/1
+            "place_1": 0/1
+        L-PERSON: 
+            "name_1": 1/1
+            "name_2": 1/1
+            "org_1": 0/1
+            "org_2": 0/1
+            "place_1": 0/1
+        U-PERSON: 
+            "name_1": 1/1
+            "name_2": 0/1
+            "org_1": 0/1
+            "org_2": 0/1
+            "place_1": 0/1
+        B-ORG:
+            "name_1": 0/1
+            "name_2": 0/1
+            "org_1": 1/1
+            "org_2": 1/1
+            "place_1": 0/1
+        I-ORG:
+            "name_1": 0/1
+            "name_2": 0/1
+            "org_1": 1/1
+            "org_2": 0/1
+            "place_1": 0/1
+        L-ORG:
+            "name_1": 0/2
+            "name_2": 0/2
+            "org_1": 1/2
+            "org_2": 1/2
+            "place_1": 0/1
+        U-ORG:
+            "name_1": 0/1
+            "name_2": 0/1
+            "org_1": 0/1
+            "org_2": 1/1
+            "place_1": 0/1
+        U-NORP:
+            "name_1": 0/1
+            "name_2": 0/1
+            "org_1": 0/1
+            "org_2": 0/1
+            "place_1": 1/1
+        U-GPE:
+            "name_1": 0/1
+            "name_2": 0/1
+            "org_1": 0/1
+            "org_2": 0/1
+            "place_1": 1/1
+    """
+    labels = ["O"]
+    labels += [
+        "%s-%s"%(p,l) for l in ["GPE", "NORP", "ORG", "PERSON"] for p in "BILU"
+    ]
+    lf_analysis = LFAnalysis(
+        [analysis_doc],
+        labels,
+        strict_match=True
+    )
+    result = lf_analysis.lf_coverages()
+
+    assert result['name_1']['B-PERSON'] == 1.0
+    assert result['name_2']['B-PERSON'] == 1.0
+    assert result['org_1']['B-PERSON'] == 0.0
+    assert result['org_2']['B-PERSON'] == 0.0
+    assert result['place_1']['B-PERSON'] == 0.0
+    assert result['name_1']['L-PERSON'] == 1.0
+    assert result['name_2']['L-PERSON'] == 1.0
+    assert result['org_1']['L-PERSON'] == 0.0
+    assert result['org_2']['L-PERSON'] == 0.0
+    assert result['place_1']['L-PERSON'] == 0.0 
+    assert result['name_1']['U-PERSON'] == 1.0
+    assert result['name_2']['U-PERSON'] == 0.0
+    assert result['org_1']['U-PERSON'] == 0.0
+    assert result['org_2']['U-PERSON'] == 0.0
+    assert result['place_1']['U-PERSON'] == 0.0 
+
+    assert result['name_1']['B-ORG'] == 0.0
+    assert result['name_2']['B-ORG'] == 0.0
+    assert result['org_1']['B-ORG'] == 1.0
+    assert result['org_2']['B-ORG'] == 1.0
+    assert result['place_1']['B-ORG'] == 0.0
+    assert result['name_1']['I-ORG'] == 0.0
+    assert result['name_2']['I-ORG'] == 0.0
+    assert result['org_1']['I-ORG'] == 1.0
+    assert result['org_2']['I-ORG'] == 0.0
+    assert result['place_1']['I-ORG'] == 0.0
+    assert result['name_1']['L-ORG'] == 0.0
+    assert result['name_2']['L-ORG'] == 0.0
+    assert result['org_1']['L-ORG'] == 1/2
+    assert result['org_2']['L-ORG'] == 1/2
+    assert result['place_1']['L-ORG'] == 0.0
+    assert result['name_1']['U-ORG'] == 0.0
+    assert result['name_2']['U-ORG'] == 0.0
+    assert result['org_1']['U-ORG'] == 0.0
+    assert result['org_2']['U-ORG'] == 1.0
+    assert result['place_1']['U-ORG'] == 0.0
+
+    assert result['name_1']['U-NORP'] == 0.0
+    assert result['name_2']['U-NORP'] == 0.0
+    assert result['org_1']['U-NORP'] == 0.0
+    assert result['org_2']['U-NORP'] == 0.0
+    assert result['place_1']['U-NORP'] == 1.0
+
+    assert result['name_1']['U-GPE'] == 0.0
+    assert result['name_2']['U-GPE'] == 0.0
+    assert result['org_1']['U-GPE'] == 0.0
+    assert result['org_2']['U-GPE'] == 0.0
+    assert result['place_1']['U-GPE'] == 1.0
+
+
+def test_lf_coverage_without_strict_match_labels_with_prefixes(analysis_doc):
+    """ Test expected overlaps across below spans:
+  
+    Spans:
+        "name_1": Pierre (PERSON), Lison (PERSON), Pierre(PERSON)
+        "name_2": Pierre (PERSON), Lison (PERSON)
+        "org_1": Norwegian (ORG), Computing (ORG), Center(ORG)
+        "org_2": Norwegian (ORG), Computing (ORG), Oslo (ORG)
+        "place_1": Norwegian (NORP), Oslo (GPE)
+
+    Coverage:
+        PERSON: 
+            "name_1": 3/3
+            "name_2": 2/3
+            "org_1": 0/3
+            "org_2": 0/3
+            "place_1": 0/3
+        ORG:
+            "name_1": 0/4
+            "name_2": 0/4
+            "org_1": 3/4
+            "org_2": 3/4
+            "place_1": 0/4
+        NORP:
+            "name_1": 0/1
+            "name_2": 0/1
+            "org_1": 0/1
+            "org_2": 0/1
+            "place_1": 1/1
+        GPE:
+            "name_1": 0/1
+            "name_2": 0/1
+            "org_1": 0/1
+            "org_2": 0/1
+            "place_1": 1/1
+    """
+    labels = ["O"]
+    labels += [
+        "%s-%s"%(p,l) for l in ["GPE", "NORP", "ORG", "PERSON"] for p in "BILU"
+    ]
+    lf_analysis = LFAnalysis(
+        [analysis_doc],
+        labels,
+        strict_match=False
+    )
+    result = lf_analysis.lf_coverages()
+
+    assert result['name_1']['PERSON'] == 1.0
+    assert result['name_1']['ORG'] == 0.0
+    assert result['name_1']['NORP'] == 0.0
+    assert result['name_1']['GPE'] == 0.0 
+
+    assert result['name_2']['PERSON'] == 2/3
+    assert result['name_2']['ORG'] == 0.0
+    assert result['name_2']['NORP'] == 0.0
+    assert result['name_2']['GPE'] == 0.0 
+
+    assert result['org_1']['PERSON'] == 0.0
+    assert result['org_1']['ORG'] == 3/4
+    assert result['org_1']['NORP'] == 0.0
+    assert result['org_1']['GPE'] == 0.0
+
+    assert result['org_2']['PERSON'] == 0.0
+    assert result['org_2']['ORG'] == 3/4
+    assert result['org_2']['NORP'] == 0.0
+    assert result['org_2']['GPE'] == 0.0
+
+    assert result['place_1']['PERSON'] == 0.0
+    assert result['place_1']['ORG'] == 0.0
+    assert result['place_1']['NORP'] == 1.0
+    assert result['place_1']['GPE'] == 1.0
+
+
+def test_lf_coverage_without_strict_match_labels_without_prefixes(analysis_doc):
+    """ Test expected overlaps across below spans:
+  
+    Spans:
+        "name_1": Pierre (PERSON), Lison (PERSON), Pierre(PERSON)
+        "name_2": Pierre (PERSON), Lison (PERSON)
+        "org_1": Norwegian (ORG), Computing (ORG), Center(ORG)
+        "org_2": Norwegian (ORG), Computing (ORG), Oslo (ORG)
+        "place_1": Norwegian (NORP), Oslo (GPE)
+
+    Coverage:
+        PERSON: 
+            "name_1": 3/3
+            "name_2": 2/3
+            "org_1": 0/3
+            "org_2": 0/3
+            "place_1": 0/3
+        ORG:
+            "name_1": 0/4
+            "name_2": 0/4
+            "org_1": 3/4
+            "org_2": 3/4
+            "place_1": 0/4
+        NORP:
+            "name_1": 0/1
+            "name_2": 0/1
+            "org_1": 0/1
+            "org_2": 0/1
+            "place_1": 1/1
+        GPE:
+            "name_1": 0/1
+            "name_2": 0/1
+            "org_1": 0/1
+            "org_2": 0/1
+            "place_1": 1/1
+    """
+    labels = ["O", "GPE", "NORP", "ORG", "PERSON"]
+    lf_analysis = LFAnalysis(
+        [analysis_doc],
+        labels,
+        strict_match=False
+    )
+    result = lf_analysis.lf_coverages()
+
+    assert result['name_1']['PERSON'] == 1.0
+    assert result['name_1']['ORG'] == 0.0
+    assert result['name_1']['NORP'] == 0.0
+    assert result['name_1']['GPE'] == 0.0 
+
+    assert result['name_2']['PERSON'] == 2/3
+    assert result['name_2']['ORG'] == 0.0
+    assert result['name_2']['NORP'] == 0.0
+    assert result['name_2']['GPE'] == 0.0 
+
+    assert result['org_1']['PERSON'] == 0.0
+    assert result['org_1']['ORG'] == 3/4
+    assert result['org_1']['NORP'] == 0.0
+    assert result['org_1']['GPE'] == 0.0
+
+    assert result['org_2']['PERSON'] == 0.0
+    assert result['org_2']['ORG'] == 3/4
+    assert result['org_2']['NORP'] == 0.0
+    assert result['org_2']['GPE'] == 0.0
+
+    assert result['place_1']['PERSON'] == 0.0
+    assert result['place_1']['ORG'] == 0.0
+    assert result['place_1']['NORP'] == 1.0
+    assert result['place_1']['GPE'] == 1.0

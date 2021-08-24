@@ -1,10 +1,14 @@
-from skweak import utils
+from collections import defaultdict
 from typing import Dict, List, Optional, Set, Tuple
 
 import numpy as np
 import pandas
 from scipy import sparse
+import scipy
 from spacy.tokens import Doc
+
+from skweak import utils
+
 
 class LFAnalysis:
     """ Run analyses on a list of spaCy Documents (corpus) to which LFs have
@@ -91,6 +95,25 @@ class LFAnalysis:
         )
 
 
+    def lf_coverages(self) -> pandas.DataFrame:
+        """ For each LF and its target labels (i.e. labels that it
+        assigns 1+ times across the corpus of Docs), compute:
+
+            # of tokens labeled by LF X with label Y
+            -----------------------------------------
+            # of distinct tokens labeled with label Y across all LFs
+        """
+        result = {}
+        for label_idx, indices in enumerate(self.label_row_indices):
+            label = self.labels[label_idx]
+            if label == 'O' or len(indices) == 0:
+                continue
+            covered = self._covered_by_label(label_idx)
+            result[label] = covered / len(indices)
+        return pandas.DataFrame.from_dict(
+            result, orient='index', columns=self.sources)
+
+
     def lf_conflicts(self) -> pandas.DataFrame:
         """ For each LF, compute the fraction of tokens that have conflicting
         non-null annotations overall and for each of its target labels.
@@ -99,17 +122,6 @@ class LFAnalysis:
         target labels annotate the same token with a non-null label. LF
         conflicts computed for labels that have 1+ instance in the corpus
         from the given LF.
-        """
-        return pandas.DataFrame()
-
-
-    def lf_coverages(self) -> pandas.DataFrame:
-        """ For each LF and its target labels, compute:
-
-            # of tokens labeled by LF X with label Y
-            -----------------------------------------
-            # of distinct tokens labeled with label Y across all LFs
-
         """
         return pandas.DataFrame()
 
@@ -209,10 +221,23 @@ class LFAnalysis:
         return np.ravel(np.where(self._L_sparse.sum(axis=1) != 0, 1, 0))
 
 
+    def _covered_by_label(self, label_val:int) -> np.ndarray:
+        """Get count vector c where c_i is the # of times the ith source
+        predicted a token to have the label value"""
+        return np.ravel((self._L_sparse == label_val).sum(axis=0))
+
+
     def _overlapped_data_points(self) -> np.ndarray:
         """Get indicator vector z where z_i = 1 if x_i i
         labeled by more than one LF."""
         return np.where(np.ravel((self._L_sparse != 0).sum(axis=1)) > 1, 1, 0)
+
+
+    def _infer_target_labels(self) -> np.ndarray:
+        """Infer the target labels each of the sources, by examining the 
+        labels in the corpus of Documents.
+        """
+        return np.unique(self.L, axis=0)
 
 
     def _get_row_indices_with_labels(self) -> List[int]:
