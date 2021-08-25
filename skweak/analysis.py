@@ -1,3 +1,4 @@
+from collections import defaultdict
 from operator import imod
 from typing import Dict, List, Optional, Tuple, Set
 
@@ -35,14 +36,15 @@ class LFAnalysis:
         using labels with BIOLU format. 
         """
         self.corpus = corpus
-        self.sources = self._get_corpus_sources(sources)
+        self.sources, self.sources2idx = self._get_corpus_sources(sources)
+        self.strict_match = strict_match
         (
             self.labels,
             self.label2idx,
             self.prefixes,
             self.labels_without_prefix
-        ) = self._get_token_level_labels(labels, strict_match)
-        self.L = self._corpus_to_token_array(strict_match)
+        ) = self._get_token_level_labels(labels)
+        self.L = self._corpus_to_token_array()
         self._L_sparse = sparse.csr_matrix(self.L)
         self.label_row_indices = self._get_row_indices_with_labels()
 
@@ -104,89 +106,222 @@ class LFAnalysis:
         }
 
 
-    def lf_coverages(self) -> pandas.DataFrame:
-        """ For each LF and its target labels (i.e. labels that it
-        assigns 1+ times across the corpus of Docs), compute:
+    def lf_coverages(self, agg:bool = False) -> pandas.DataFrame:
+        """ Compute LF coverages (i.e., tokens labeled by a LF that 
+        are also labeled by another LF).
 
-            # of tokens labeled by LF X with label Y
-            -----------------------------------------
-            # of distinct tokens labeled with label Y across all LFs
-        """
-        result = {}
-        for label_idx, indices in enumerate(self.label_row_indices):
-            label = self.labels[label_idx]
-            if label == 'O' or len(indices) == 0:
-                continue
-            covered = self._covered_by_label(label_idx)
-            result[label] = covered / len(indices)
-        return pandas.DataFrame.from_dict(
-            result, orient='index', columns=self.sources)
+        If `agg` is True, coverages are computed for each LF across all of the
+        LF's target labels:
 
-
-    def lf_overlaps(self) -> pandas.DataFrame:
-        """ For each LF, compute the fraction of tokens that have another LF
-        providing a non-null label.
-        """
-        L_sparse_indicator = (self._L_sparse != 0)
-        overlaps = (
-            L_sparse_indicator.T
-            @ self._overlapped_data_points()
-            / L_sparse_indicator.sum(axis=0)
-        )
-        return pandas.DataFrame(
-            overlaps.T,
-            columns=['lf_overlap'],
-            index=self.sources
-        )
-
-
-    def lf_conflicts(self) -> pandas.DataFrame:
-        """ For each LF, compute the fraction of tokens that have conflicting
-        non-null annotations overall and for each of its target labels.
-
-        A conflict is defined as an instance where 2 LFs with different
-        target labels annotate the same token with a non-null label. LF
-        from the given LF.
-        """
-        result = {}
-        conflicts = self._conflicted_data_points()
-        for label_idx, indices in enumerate(self.label_row_indices):
-            label = self.labels[label_idx]
-            if label == 'O' or len(indices) == 0:
-                continue
-            with np.errstate(divide='ignore',invalid='ignore'):
-                # Select rows that contain the given label and then create
-                # and indicator matrix for the label (e.g., 1 if 
-                # label was applied by LF)
-                x = (self._L_sparse[indices] == label_idx)
-
-                # For each LF identify the number of times the label has
-                # been selected, during a conflict and divide by the 
-                # number of times that the label was assigned y the 
-                # given label function
-                lf_conflicts = (x.T @ conflicts[indices]).T / x.sum(axis=0)
-                result[label] = np.ravel(np.nan_to_num(lf_conflicts))
+        Coverage (LF X) = 
+            # of tokens labeled non-null by LF X
+            -------------------------------------------------------------------
+            # of tokens labeled non-null by all LFs across LF X's target labels
         
-        return pandas.DataFrame.from_dict(
-            result, orient='index', columns=self.sources)
+        If `agg` is False, coverages are computed individually for each target
+        label and LF:
 
-
-    def lf_empirical_accuracies(self,
-        Y:List[Doc],
-        label_to_span_names:Dict[str, str]
-    ) -> pandas.DataFrame:
-        """ For each LF and its target labels, compute the empirical accuracy.
+        Coverage (LF X, Label Y) = 
+            # of tokens labeled by LF X as Y
+            --------------------------------------------------------
+            # of distinct tokens labeled as Y across all LFs
         """
-        return pandas.DataFrame()
+        if agg:
+            # Compute the number of tokens covered by each LF
+            covered_token_counts = np.ravel((self._L_sparse != 0).sum(axis=0))
 
+            # Compute number of tokens covered by target labels for a LF
+            total_token_counts = np.zeros(len(self.sources))
+            for lf, lf_target_labels in self.lf_target_labels().items():
+                label_coverages = np.zeros((self.L.shape[0], 1))
+                lf_idx = self.sources2idx[lf]
+                for label_idx in lf_target_labels:
+                    label_coverages += self._covered_by_label(label_idx)
+                union_label_coverages = label_coverages >= 1
+                total_token_counts[lf_idx] = np.sum(union_label_coverages)
+            
+            # Compute LF Coverages
+            coverages = (covered_token_counts/total_token_counts)
+            return pandas.DataFrame(
+                coverages.reshape(1, len(self.sources)),
+                columns=self.sources,
+            )                        
+        else:
+            result = {}
+            for label_idx, indices in enumerate(self.label_row_indices):
+                label = self.labels[label_idx]
+                if label == 'O' or len(indices) == 0:
+                    continue
+                covered = self._covered_by_label_counts(label_idx)
+                result[label] = covered / len(indices)
+            return pandas.DataFrame.from_dict(
+                result, orient='index', columns=self.sources)
+
+
+    def lf_overlaps(self, agg:bool = False) -> pandas.DataFrame:
+        """ Compute LF overlaps (i.e., tokens labeled by 2+ LFs).
+
+        If `agg` is True, overlaps are computed for each LF across all of the
+        LF's target labels:
+
+        Overlaps(LF X)= 
+            # of tokens labeled non-null by LF X and another LF
+            ---------------------------------------------------
+            # of tokens labeled non-null by LF X
+
+        If `agg` is False, overlaps are computed individually for each target
+        label and LF:
+
+        Overlaps(LF X, Label Y) = 
+            # of tokens labeled by LF X as Y and labeled non-null by another LF
+            -------------------------------------------------------------------
+            # of tokens labeled by LF X as Y
+        """
+        if agg:
+            L_sparse_indicator = (self._L_sparse != 0)
+            overlaps = np.nan_to_num(
+                L_sparse_indicator.T
+                @ self._overlapped_data_points()
+                / L_sparse_indicator.sum(axis=0)
+            )
+            return pandas.DataFrame(
+                overlaps,
+                columns=self.sources,
+            )
+        else:
+            result = {}
+            overlaps = self._overlapped_data_points()
+            for label_idx, indices in enumerate(self.label_row_indices):
+                label = self.labels[label_idx]
+                if label == 'O' or len(indices) == 0:
+                    continue
+                with np.errstate(divide='ignore',invalid='ignore'):
+                    # Select rows that contain the given label and then create
+                    # and indicator matrix for the label (e.g., 1 if 
+                    # label was applied by LF)
+                    x = (self._L_sparse[indices] == label_idx)
+
+                    # For each LF identify the number of times the label has
+                    # been selected, during a overlap and divide by the 
+                    # number of times that the label was assigned y the 
+                    # given label function
+                    lf_overlaps = (x.T @ overlaps[indices]).T / x.sum(axis=0)
+                    result[label] = np.ravel(np.nan_to_num(lf_overlaps))
+            
+            return pandas.DataFrame.from_dict(
+                result, orient='index', columns=self.sources)
+
+
+    def lf_conflicts(self, agg:bool = False) -> pandas.DataFrame:
+        """ Compute conflicts (i.e., instances where 2 LFs assign different
+        non-null labels to a token).
+        
+        If `agg` is True, conflicts are computed for each LF across all of the
+        LF's target labels.
+
+        Conflicts(LF X)= 
+            # of tokens labeled non-null by LF X w/ conflicting overlaps
+            ------------------------------------------------------------
+            # of tokens labeled non-null by LF X
+
+        If `agg` is False, overlaps are computed individually for each target
+        label and LF:
+
+        Conflicts(LF X, Label Y) = 
+            # of tokens labeled by LF X as Y w/ conflicting overlaps
+            --------------------------------------------------------
+            # of tokens labeled by LF X as Y
+        
+        """
+        if agg:
+            L_sparse_indicator = (self._L_sparse != 0)
+            conflicts = np.nan_to_num(
+                L_sparse_indicator.T
+                @ self._conflicted_data_points()
+                / L_sparse_indicator.sum(axis=0)
+            )
+            return pandas.DataFrame(
+                conflicts,
+                columns=self.sources,
+            )
+        else:
+            result = {}
+            conflicts = self._conflicted_data_points()
+            for label_idx, indices in enumerate(self.label_row_indices):
+                label = self.labels[label_idx]
+                if label == 'O' or len(indices) == 0:
+                    continue
+                with np.errstate(divide='ignore',invalid='ignore'):
+                    # Select rows that contain the given label and then create
+                    # and indicator matrix for the label (e.g., 1 if 
+                    # label was applied by LF)
+                    x = (self._L_sparse[indices] == label_idx)
+
+                    # For each LF identify the number of times the label has
+                    # been selected, during a conflict and divide by the 
+                    # number of times that the label was assigned y the 
+                    # given label function
+                    lf_conflicts = (x.T @ conflicts[indices]).T / x.sum(axis=0)
+                    result[label] = np.ravel(np.nan_to_num(lf_conflicts))
+            
+            return pandas.DataFrame.from_dict(
+                result, orient='index', columns=self.sources)
+
+
+    def lf_empirical_accuracies(
+        self,
+        Y:List[Doc],
+        gold_span_name:str,
+        gold_labels:List[str],
+        print_warnings:bool = True
+    ) -> pandas.DataFrame:
+        """ Compute empirical accuracies. 
+
+        If `agg` is True, conflicts are computed for each LF across all of the
+        LF's target labels:
+
+        Accuracy(LF X)= 
+            # of tokens labeled correctly by LF X
+            -------------------------------------
+            # total tokens
+
+        If `agg` is False, overlaps are computed individually for each target
+        label and LF:
+
+        Accuracy(LF X, Label Y) = 
+            # of tokens labeled correctly by LF as Label Y
+            ----------------------------------------------
+            # of tokens labeld by LF X as Y
+
+        NB:
+        - Any ground truth labels that are not covered by the LF are set to 0.
+                  
+          For example, if LF1 has a target label set [0, 1, 2], the
+          ground truth for a dataset is [1, 2, 3, 4], and `agg` is True,
+          the LF1's accuracies will be computed against the ground truth
+          labels [1, 2, 0, 0]).
+
+          Similarly, if LF1 has a target label set [0, 1, 2], the
+          ground truth for a dataset is [1, 2, 3, 4], and `agg` is False,
+          and we are computing the accuracy for LF1 and label 2, the
+          (LF1, Label 2) accuracy will be computed against the ground truth
+          labels [0, 2, 0, 0]).
+
+        - We assume that all gold labels are contained within a single span
+        and that labels do not contain prefixes (e.g. PERSON is used, not
+        I-PERSON, etc.).
+
+        - If we encounter a label that has not been indexed by the LFAnalysis
+        instance the token is assigned the null label.
+        """
+        raise NotImplementedError()
 
     # ----------------------
     # Initialization Helpers
     # ----------------------
     def _get_token_level_labels(
         self,
-        original_labels:List[str],
-        strict_match: bool
+        original_labels:List[str]
     ) -> Tuple[List[str], Dict[str, int], Set[str], Set[str]]:
         """ Generate helper dictionaries that normalize and index labels
         used for token-level analyses.
@@ -204,7 +339,7 @@ class LFAnalysis:
         # labels without prefixes according to original label set. 
         label2idx, prefixes, labels_without_prefix = utils._index_labels(
             original_labels,
-            not strict_match
+            not self.strict_match
         )
 
         # Generate mapping of index to label name
@@ -212,20 +347,27 @@ class LFAnalysis:
         return labels, label2idx, prefixes, labels_without_prefix
 
 
-    def _get_corpus_sources(self, sources:Optional[List[str]]) -> List[str]:
+    def _get_corpus_sources(
+        self,
+        sources:Optional[List[str]]
+    ) -> Tuple[List[str], Dict[str, int]]:
         """ Determine sources for analysis. If no sources are provided, sources
         is computed as the union of sources used across the corpus of Docs.
         """
+        result_sources = []
         corpus_sources = set()
         if sources is None:
             for doc in self.corpus:
                 corpus_sources.update(set(doc.spans.keys()))
-            return list(corpus_sources)
+            result_sources = list(corpus_sources)
         else:
-            return list(set(sources))
+            result_sources = list(set(sources))
+        return result_sources, {
+            source: i for i, source in enumerate(result_sources)
+        }
 
 
-    def _corpus_to_token_array(self, strict_match:bool) -> np.ndarray:
+    def _corpus_to_token_array(self) -> np.ndarray:
         """ Convert corpus to a matrix of dimensions:
         (# of tokens in corpus, # sources)
         """
@@ -235,7 +377,7 @@ class LFAnalysis:
                 self.sources,
                 self.label2idx,
                 self.labels_without_prefix,
-                self.prefixes if strict_match else None
+                self.prefixes if self.strict_match else None
             ) for doc in self.corpus
         ])
 
@@ -261,6 +403,13 @@ class LFAnalysis:
 
 
     def _covered_by_label(self, label_val:int) -> np.ndarray:
+        """Get indicator vector z where z_i = 1 if x_1 is labeled label_val
+        by at least one LF.
+        """ 
+        return (self._L_sparse == label_val).max(axis=1)
+
+
+    def _covered_by_label_counts(self, label_val:int) -> np.ndarray:
         """Get count vector c where c_i is the # of times the ith source
         predicted a token to have the label value"""
         return np.ravel((self._L_sparse == label_val).sum(axis=0))

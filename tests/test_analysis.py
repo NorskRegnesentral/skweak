@@ -1,7 +1,6 @@
 
 import re
 
-import numpy as np
 from spacy.tokens import Span #type: ignore
 import pytest
 
@@ -39,7 +38,7 @@ def analysis_doc(nlp):
 # ---------------------
 # LABEL OVERLAP TESTS
 # ---------------------
-def test_overlaps_with_strict_match_labels_with_prefixes(analysis_doc):
+def test_overlaps_with_strict_match_with_prefixes(analysis_doc):
     """ Test expected overlaps across below spans:
   
     Spans:
@@ -81,7 +80,7 @@ def test_overlaps_with_strict_match_labels_with_prefixes(analysis_doc):
     assert result['overlap']['U-GPE'] == 1.0
 
 
-def test_overlaps_without_strict_match_labels_with_prefixes(analysis_doc):
+def test_overlaps_without_strict_match_with_prefixes(analysis_doc):
     """ Test expected overlaps across below spans:
   
     Spans:
@@ -113,7 +112,7 @@ def test_overlaps_without_strict_match_labels_with_prefixes(analysis_doc):
     assert result['overlap']['GPE'] == 1.0
 
 
-def test_overlaps_without_strict_match_labels_without_prefixes(analysis_doc):
+def test_overlaps_without_strict_match_without_prefixes(analysis_doc):
     """ Test expected overlaps across below spans:
   
     Spans:
@@ -144,7 +143,7 @@ def test_overlaps_without_strict_match_labels_without_prefixes(analysis_doc):
 # ---------------------
 # LABEL CONFLICT TESTS
 # ---------------------
-def test_conflicts_with_strict_match_labels_with_prefixes(analysis_doc):
+def test_conflicts_with_strict_match_with_prefixes(analysis_doc):
     """ Test expected conflicts across below spans:
   
     Spans:
@@ -192,7 +191,7 @@ def test_conflicts_with_strict_match_labels_with_prefixes(analysis_doc):
     assert result['conflict']['U-GPE'] == 1.0
 
 
-def test_conflicts_without_strict_match_labels_with_prefixes(analysis_doc):
+def test_conflicts_without_strict_match_with_prefixes(analysis_doc):
     """ Test expected conflicts across below spans:
   
     Spans:
@@ -227,7 +226,7 @@ def test_conflicts_without_strict_match_labels_with_prefixes(analysis_doc):
     assert result['conflict']['GPE'] == 1.0
 
 
-def test_conflicts_without_strict_match_labels_without_prefixes(analysis_doc):
+def test_conflicts_without_strict_match_without_prefixes(analysis_doc):
     """ Test expected conflicts across below spans:
   
     Spans:
@@ -288,12 +287,11 @@ def test_lf_targets(analysis_doc):
         lf_analysis.label2idx["GPE"]])
 
 
-
-# ------------------
-# LF COVERAGE TESTS
-# ------------------
-def test_lf_coverage_with_strict_match_labels_with_prefixes(analysis_doc):
-    """ Test expected overlaps across below spans:
+# ---------------------------
+# LF COVERAGE TESTS w/out agg
+# ---------------------------
+def test_lf_coverage_with_strict_match_with_prefixes_without_agg(analysis_doc):
+    """ Test expected coverage across below spans:
   
     Spans:
         "name_1": Pierre (B-PERSON), Lison (L-PERSON), Pierre(U-PERSON)
@@ -367,7 +365,7 @@ def test_lf_coverage_with_strict_match_labels_with_prefixes(analysis_doc):
         labels,
         strict_match=True
     )
-    result = lf_analysis.lf_coverages()
+    result = lf_analysis.lf_coverages(agg=False)
 
     assert result['name_1']['B-PERSON'] == 1.0
     assert result['name_2']['B-PERSON'] == 1.0
@@ -419,8 +417,10 @@ def test_lf_coverage_with_strict_match_labels_with_prefixes(analysis_doc):
     assert result['place_1']['U-GPE'] == 1.0
 
 
-def test_lf_coverage_without_strict_match_labels_with_prefixes(analysis_doc):
-    """ Test expected overlaps across below spans:
+def test_lf_coverage_without_strict_match_with_prefixes_without_agg(
+    analysis_doc
+):
+    """ Test expected coverage across below spans:
   
     Spans:
         "name_1": Pierre (PERSON), Lison (PERSON), Pierre(PERSON)
@@ -464,7 +464,7 @@ def test_lf_coverage_without_strict_match_labels_with_prefixes(analysis_doc):
         labels,
         strict_match=False
     )
-    result = lf_analysis.lf_coverages()
+    result = lf_analysis.lf_coverages(agg=False)
 
     assert result['name_1']['PERSON'] == 1.0
     assert result['name_1']['ORG'] == 0.0
@@ -492,8 +492,10 @@ def test_lf_coverage_without_strict_match_labels_with_prefixes(analysis_doc):
     assert result['place_1']['GPE'] == 1.0
 
 
-def test_lf_coverage_without_strict_match_labels_without_prefixes(analysis_doc):
-    """ Test expected overlaps across below spans:
+def test_lf_coverage_without_strict_match_without_prefixes_without_agg(
+    analysis_doc
+):
+    """ Test expected coverage across below spans:
   
     Spans:
         "name_1": Pierre (PERSON), Lison (PERSON), Pierre(PERSON)
@@ -534,7 +536,7 @@ def test_lf_coverage_without_strict_match_labels_without_prefixes(analysis_doc):
         labels,
         strict_match=False
     )
-    result = lf_analysis.lf_coverages()
+    result = lf_analysis.lf_coverages(agg=False)
 
     assert result['name_1']['PERSON'] == 1.0
     assert result['name_1']['ORG'] == 0.0
@@ -562,10 +564,334 @@ def test_lf_coverage_without_strict_match_labels_without_prefixes(analysis_doc):
     assert result['place_1']['GPE'] == 1.0
 
 
-# ----------------
-# LF OVERLAP TESTS
-# -----------------
-def test_lf_overlaps_with_strict_match_labels_with_prefixes(analysis_doc):
+# ------------------------
+# LF COVERAGE TESTS w/ agg
+# -------------------------
+def test_lf_coverage_with_strict_match_with_prefixes_with_agg(analysis_doc):
+    """ Test expected coverage across below spans:
+  
+    Spans:
+        "name_1": Pierre (B-PERSON), Lison (L-PERSON), Pierre(U-PERSON)
+        "name_2": Pierre (B-PERSON), Lison (L-PERSON)
+        "org_1": Norwegian (B-ORG), Computing (I-ORG), Center(L-ORG)
+        "org_2": Norwegian (B-ORG), Computing (L-ORG), Oslo (U-ORG)
+        "place_1": Norwegian (U-NORP), Oslo (U-GPE)
+
+    Coverage:
+        "name_1": 3/3
+        "name_2": 2/2
+        "org_1": 3/3
+        "org_2": 3/4
+        "place_1": 2/2
+    """
+    labels = ["O"]
+    labels += [
+        "%s-%s"%(p,l) for l in ["GPE", "NORP", "ORG", "PERSON"] for p in "BILU"
+    ]
+    lf_analysis = LFAnalysis(
+        [analysis_doc],
+        labels,
+        strict_match=True
+    )
+    result = lf_analysis.lf_coverages(agg=True)
+    assert(result["name_1"].item() == 1.0)
+    assert(result["name_2"].item() == 1.0)
+    assert(result["org_1"].item() == 1.0)
+    assert(result["org_2"].item() == 3/4)
+    assert(result["place_1"].item() == 1.0)
+
+
+def test_lf_coverage_without_strict_match_with_prefixes_with_agg(
+    analysis_doc
+):
+    """ Test expected coverage across below spans:
+  
+    Spans:
+        "name_1": Pierre (PERSON), Lison (PERSON), Pierre(PERSON)
+        "name_2": Pierre (PERSON), Lison (PERSON)
+        "org_1": Norwegian (ORG), Computing (ORG), Center(ORG)
+        "org_2": Norwegian (ORG), Computing (ORG), Oslo (ORG)
+        "place_1": Norwegian (NORP), Oslo (GPE)
+
+    Coverage:
+        "name_1": 3/3
+        "name_2": 2/3
+        "org_1": 3/4
+        "org_2": 3/4
+        "place_1": 2/2
+    """
+    labels = ["O"]
+    labels += [
+        "%s-%s"%(p,l) for l in ["GPE", "NORP", "ORG", "PERSON"] for p in "BILU"
+    ]
+    lf_analysis = LFAnalysis(
+        [analysis_doc],
+        labels,
+        strict_match=False
+    )
+    result = lf_analysis.lf_coverages(agg=True)
+    assert(result["name_1"].item() == 1.0)
+    assert(result["name_2"].item() == 2/3)
+    assert(result["org_1"].item() == 3/4)
+    assert(result["org_2"].item() == 3/4)
+    assert(result["place_1"].item() == 1.0)
+
+
+def test_lf_coverage_without_strict_match_without_prefixes_with_agg(
+    analysis_doc
+):
+    """ Test expected coverage across below spans:
+  
+    Spans:
+        "name_1": Pierre (PERSON), Lison (PERSON), Pierre(PERSON)
+        "name_2": Pierre (PERSON), Lison (PERSON)
+        "org_1": Norwegian (ORG), Computing (ORG), Center(ORG)
+        "org_2": Norwegian (ORG), Computing (ORG), Oslo (ORG)
+        "place_1": Norwegian (NORP), Oslo (GPE)
+
+    Coverage:
+        "name_1": 3/3
+        "name_2": 2/3
+        "org_1": 3/4
+        "org_2": 3/4
+        "place_1": 2/2
+    """
+    labels = ["O", "GPE", "NORP", "ORG", "PERSON"]
+    lf_analysis = LFAnalysis(
+        [analysis_doc],
+        labels,
+        strict_match=False
+    )
+    result = lf_analysis.lf_coverages(agg=True)
+    assert(result["name_1"].item() == 1.0)
+    assert(result["name_2"].item() == 2/3)
+    assert(result["org_1"].item() == 3/4)
+    assert(result["org_2"].item() == 3/4)
+    assert(result["place_1"].item() == 1.0)
+
+
+# ----------------------------
+# LF OVERLAP TESTS w/out agg
+# -----------------------------
+def test_lf_overlaps_with_strict_match_with_prefixes_without_agg(analysis_doc):
+    """ Test expected overlaps across below spans:
+  
+    Spans:
+        "name_1": Pierre (B-PERSON), Lison (L-PERSON), Pierre(U-PERSON)
+        "name_2": Pierre (B-PERSON), Lison (L-PERSON)
+        "org_1": Norwegian (B-ORG), Computing (I-ORG), Center(L-ORG)
+        "org_2": Norwegian (B-ORG), Computing (L-ORG), Oslo (U-ORG)
+        "place_1": Norwegian (U-NORP), Oslo (U-GPE)
+
+    Overlaps:
+        name_1:
+            B-PERSON: 1 Overlaps / 1
+            L-PERSON: 1 Overlaps / 1
+            U-PERSON: 0 Overlaps / 1
+            B-ORG: 0 Overlaps / 0
+            I-ORG: 0 Overlaps / 0
+            L-ORG: 0 Overlaps / 0
+            U-ORG: 0 Overlaps / 0
+            U-NORP: 0 Overlaps / 0
+            U-GPE: 0 Overlaps / 0
+        name_2:
+            B-PERSON: 1 Overlaps / 1
+            L-PERSON: 1 Overlaps / 1
+            U-PERSON: 0 Overlaps / 0
+            B-ORG: 0 Overlaps / 0
+            I-ORG: 0 Overlaps / 0
+            L-ORG: 0 Overlaps / 0
+            U-ORG: 0 Overlaps / 0
+            U-NORP: 0 Overlaps / 0
+            U-GPE: 0 Overlaps / 0
+        org_1:
+            B-PERSON: 0 Overlaps / 0
+            L-PERSON: 0 Overlaps / 0
+            U-PERSON: 0 Overlaps / 0
+            B-ORG: 1 Overlap / 1
+            I-ORG: 0 Overlap / 1 
+            L-ORG: 0 Overlap / 1
+            U-ORG: 0 Overlaps / 0
+            U-NORP: 0 Overlaps / 0
+            U-GPE: 0 Overlaps / 0
+        org_2:
+            B-PERSON: 0 Overlaps / 0
+            L-PERSON: 0 Overlaps / 0
+            U-PERSON: 0 Overlaps / 0
+            B-ORG: 1 Overlap / 1
+            I-ORG: 0 Overlaps / 0
+            L-ORG: 1 Overlap / 1
+            U-ORG: 1 Overlap / 1
+            U-NORP: 0 Overlaps / 0
+            U-GPE: 0 Overlaps / 0
+        place_1:
+            B-PERSON: 0 Overlaps / 0
+            L-PERSON: 0 Overlaps / 0
+            U-PERSON: 0 Overlaps / 0
+            B-ORG: 1 Overlap / 1
+            I-ORG: 0 Overlaps / 0
+            L-ORG: 0 Conflict / 0
+            U-ORG: 0 Conflict / 0
+            U-NORP: 1 Overlap / 1
+            U-GPE: 1 Overlap / 1
+  
+    """
+    labels = ["O"]
+    labels += [
+        "%s-%s"%(p,l) for l in ["GPE", "NORP", "ORG", "PERSON"] for p in "BILU"
+    ]
+    lf_analysis = LFAnalysis(
+        [analysis_doc],
+        labels,
+        strict_match=True
+    )
+    result = lf_analysis.lf_overlaps(agg=False)
+
+    # Order:
+    # U-GPE, U-NORP, B-ORG, I-ORG, L-ORG, U-ORG
+    # B-PERSON, L-PERSON, U-PERSON
+    assert (result['name_1'].to_list() == 
+        [0., 0., 0., 0., 0., 0., 1., 1., 0.,])
+    assert (result['name_2'].to_list() == 
+        [0., 0., 0., 0., 0., 0., 1., 1., 0.,])
+    assert (result['org_1'].to_list() == 
+        [0., 0., 1., 1., 0., 0., 0., 0., 0.,])
+    assert (result['org_2'].to_list() == 
+        [0., 0., 1., 0., 1., 1., 0., 0., 0.,])
+    assert (result['place_1'].to_list() == 
+        [1., 1., 0., 0., 0., 0., 0., 0., 0.,])
+
+
+def test_lf_overlaps_without_strict_match_with_prefixes_without_agg(
+    analysis_doc
+):
+    """ Test expected overlaps across below spans:
+
+    Spans:
+        "name_1": Pierre (PERSON), Lison (PERSON), Pierre(PERSON)
+        "name_2": Pierre (PERSON), Lison (PERSON)
+        "org_1": Norwegian (ORG), Computing (ORG), Center(ORG)
+        "org_2": Norwegian (ORG), Computing (ORG), Oslo (ORG)
+        "place_1": Norwegian (NORP), Oslo (GPE)
+
+    Overlaps:
+        name_1:
+            PERSON: 2/3
+            ORG: 0/0
+            NORP: 0/0
+            GPE: 0/0
+        name_2:
+            PERSON: 2/2
+            ORG: 0/0
+            NORP: 0/0
+            GPE: 0/0
+        org_1:
+            PERSON: 0/0
+            ORG: 2/3
+            NORP: 0/0
+            GPE: 0/0
+        org_2:
+            PERSON: 0/0
+            ORG: 3/3
+            NORP: 0/0
+            GPE: 0/0
+        place_1:
+            PERSON: 0/0
+            ORG: 0/0
+            NORP: 1/1
+            GPE: 1/1
+  
+    """
+    labels = ["O"]
+    labels += [
+        "%s-%s"%(p,l) for l in ["GPE", "NORP", "ORG", "PERSON"] for p in "BILU"
+    ]
+    lf_analysis = LFAnalysis(
+        [analysis_doc],
+        labels,
+        strict_match=False
+    )
+    result = lf_analysis.lf_overlaps(agg=False)
+    # Order:
+    # GPE, NORP, ORG, PERSON
+    assert (result['name_1'].to_list() == 
+        [0., 0., 0., 2/3])
+    assert (result['name_2'].to_list() == 
+        [0., 0., 0., 1.])
+    assert (result['org_1'].to_list() == 
+        [0., 0., 2/3, 0.])
+    assert (result['org_2'].to_list() == 
+        [0., 0., 1., 0.])
+    assert (result['place_1'].to_list() == 
+        [1., 1., 0., 0.])
+
+
+def test_lf_overlaps_without_strict_match_without_prefixes_without_agg(
+    analysis_doc
+):
+    """ Test expected overlaps across below spans:
+  
+    Spans:
+        "name_1": Pierre (PERSON), Lison (PERSON), Pierre(PERSON)
+        "name_2": Pierre (PERSON), Lison (PERSON)
+        "org_1": Norwegian (ORG), Computing (ORG), Center(ORG)
+        "org_2": Norwegian (ORG), Computing (ORG), Oslo (ORG)
+        "place_1": Norwegian (NORP), Oslo (GPE)
+
+    Overlaps:
+        name_1:
+            PERSON: 2/3
+            ORG: 0/0
+            NORP: 0/0
+            GPE: 0/0
+        name_2:
+            PERSON: 2/2
+            ORG: 0/0
+            NORP: 0/0
+            GPE: 0/0
+        org_1:
+            PERSON: 0/0
+            ORG: 2/3
+            NORP: 0/0
+            GPE: 0/0
+        org_2:
+            PERSON: 0/0
+            ORG: 3/3
+            NORP: 0/0
+            GPE: 0/0
+        place_1:
+            PERSON: 0/0
+            ORG: 0/0
+            NORP: 1/1
+            GPE: 1/1
+  
+    """
+    labels = ["O", "GPE", "NORP", "ORG", "PERSON"]
+    lf_analysis = LFAnalysis(
+        [analysis_doc],
+        labels,
+        strict_match=False
+    )
+    result = lf_analysis.lf_overlaps(agg=False)
+
+    # Order:
+    # GPE, NORP, ORG, PERSON
+    assert (result['name_1'].to_list() == 
+        [0., 0., 0., 2/3])
+    assert (result['name_2'].to_list() == 
+        [0., 0., 0., 1.])
+    assert (result['org_1'].to_list() == 
+        [0., 0., 2/3, 0.])
+    assert (result['org_2'].to_list() == 
+        [0., 0., 1., 0.])
+    assert (result['place_1'].to_list() == 
+        [1., 1., 0., 0.])
+
+
+# -----------------------
+# LF OVERLAP TESTS w/ agg
+# -----------------------
+def test_lf_overlaps_with_strict_match_with_prefixes_with_agg(analysis_doc):
     """ Test expected overlaps across below spans:
   
     Spans:
@@ -592,15 +918,15 @@ def test_lf_overlaps_with_strict_match_labels_with_prefixes(analysis_doc):
         labels,
         strict_match=True
     )
-    result = lf_analysis.lf_overlaps()
-    assert result['lf_overlap']['name_1'] == 2/3
-    assert result['lf_overlap']['name_2'] == 1.0
-    assert result['lf_overlap']['org_1'] == 2/3
-    assert result['lf_overlap']['org_2'] == 1.0
-    assert result['lf_overlap']['place_1'] == 1.0
+    result = lf_analysis.lf_overlaps(agg=True)
+    assert result['name_1'].item() == 2/3
+    assert result['name_2'].item() == 1.0
+    assert result['org_1'].item() == 2/3
+    assert result['org_2'].item() == 1.0
+    assert result['place_1'].item() == 1.0
 
 
-def test_lf_overlaps_without_strict_match_labels_with_prefixes(analysis_doc):
+def test_lf_overlaps_without_strict_match_with_prefixes_with_agg(analysis_doc):
     """ Test expected overlaps across below spans:
 
     Spans:
@@ -627,15 +953,15 @@ def test_lf_overlaps_without_strict_match_labels_with_prefixes(analysis_doc):
         labels,
         strict_match=False
     )
-    result = lf_analysis.lf_overlaps()
-    assert result['lf_overlap']['name_1'] == 2/3
-    assert result['lf_overlap']['name_2'] == 1.0
-    assert result['lf_overlap']['org_1'] == 2/3
-    assert result['lf_overlap']['org_2'] == 1.0
-    assert result['lf_overlap']['place_1'] == 1.0
+    result = lf_analysis.lf_overlaps(agg=True)
+    assert result['name_1'].item() == 2/3
+    assert result['name_2'].item() == 1.0
+    assert result['org_1'].item() == 2/3
+    assert result['org_2'].item() == 1.0
+    assert result['place_1'].item() == 1.0
 
 
-def test_lf_overlaps_without_strict_match_labels_without_prefixes(
+def test_lf_overlaps_without_strict_match_without_prefixes_with_agg(
     analysis_doc
 ):
     """ Test expected overlaps across below spans:
@@ -661,18 +987,20 @@ def test_lf_overlaps_without_strict_match_labels_without_prefixes(
         labels,
         strict_match=False
     )
-    result = lf_analysis.lf_overlaps()
-    assert result['lf_overlap']['name_1'] == 2/3
-    assert result['lf_overlap']['name_2'] == 1.0
-    assert result['lf_overlap']['org_1'] == 2/3
-    assert result['lf_overlap']['org_2'] == 1.0
-    assert result['lf_overlap']['place_1'] == 1.0
+    result = lf_analysis.lf_overlaps(agg=True)
+    assert result['name_1'].item() == 2/3
+    assert result['name_2'].item() == 1.0
+    assert result['org_1'].item() == 2/3
+    assert result['org_2'].item() == 1.0
+    assert result['place_1'].item() == 1.0
 
 
-# ----------------
-# LF CONFLICT TESTS
-# -----------------
-def test_conflicts_with_strict_match_labels_with_prefixes(analysis_doc):
+# ---------------------------
+# LF CONFLICT TESTS w/out Agg
+# ---------------------------
+def test_lf_conflicts_with_strict_match_with_prefixes_without_agg(
+    analysis_doc
+):
     """ Test expected conflicts across below spans:
   
     Spans:
@@ -743,7 +1071,7 @@ def test_conflicts_with_strict_match_labels_with_prefixes(analysis_doc):
         labels,
         strict_match=True
     )
-    result = lf_analysis.lf_conflicts()
+    result = lf_analysis.lf_conflicts(agg=False)
     assert (result['name_1'].to_list() == 
         [0., 0., 0., 0., 0., 0., 0., 0., 0.,])
     assert (result['name_2'].to_list() == 
@@ -756,7 +1084,9 @@ def test_conflicts_with_strict_match_labels_with_prefixes(analysis_doc):
         [1., 1., 0., 0., 0., 0., 0., 0., 0.,])
 
 
-def test_conflicts_without_strict_match_labels_with_prefixes(analysis_doc):
+def test_lf_conflicts_without_strict_match_with_prefixes_without_agg(
+    analysis_doc
+):
     """ Test expected conflicts across below spans:
 
     Spans:
@@ -774,7 +1104,7 @@ def test_conflicts_without_strict_match_labels_with_prefixes(analysis_doc):
             GPE: 0/0
         name_2:
             PERSON: 0/2
-            ORG: 0/2
+            ORG: 0/0
             NORP: 0/0
             GPE: 0/0
         org_1:
@@ -802,7 +1132,7 @@ def test_conflicts_without_strict_match_labels_with_prefixes(analysis_doc):
         labels,
         strict_match=False
     )
-    result = lf_analysis.lf_conflicts()
+    result = lf_analysis.lf_conflicts(agg=False)
     assert (result['name_1'].to_list() == 
         [0., 0., 0., 0.,])
     assert (result['name_2'].to_list() == 
@@ -815,7 +1145,9 @@ def test_conflicts_without_strict_match_labels_with_prefixes(analysis_doc):
         [1., 1., 0., 0.,])
     
 
-def test_conflicts_without_strict_match_labels_without_prefixes(analysis_doc):
+def test_lf_conflicts_without_strict_match_without_prefixes_without_agg(
+    analysis_doc
+):
     """ Test expected conflicts across below spans:
 
     Spans:
@@ -858,7 +1190,7 @@ def test_conflicts_without_strict_match_labels_without_prefixes(analysis_doc):
         labels,
         strict_match=False
     )
-    result = lf_analysis.lf_conflicts()
+    result = lf_analysis.lf_conflicts(agg=False)
     assert (result['name_1'].to_list() == 
         [0., 0., 0., 0.,])
     assert (result['name_2'].to_list() == 
@@ -869,3 +1201,110 @@ def test_conflicts_without_strict_match_labels_without_prefixes(analysis_doc):
         [0., 0., 2/3., 0.,])
     assert (result['place_1'].to_list() == 
         [1., 1., 0., 0.,])
+
+
+# ------------------------
+# LF CONFLICT TESTS w/ Agg
+# ------------------------
+def test_lf_conflicts_with_strict_match_with_prefixes_with_agg(
+    analysis_doc
+):
+    """ Test expected conflicts across below spans:
+
+    Spans:
+        "name_1": Pierre (PERSON), Lison (PERSON), Pierre(PERSON)
+        "name_2": Pierre (PERSON), Lison (PERSON)
+        "org_1": Norwegian (ORG), Computing (ORG), Center(ORG)
+        "org_2": Norwegian (ORG), Computing (ORG), Oslo (ORG)
+        "place_1": Norwegian (NORP), Oslo (GPE)
+
+        name_1: 0/3
+        name_2: 0/2
+        org_1: 2/3
+        org_2: 3/3
+        place_1: 3/3
+    """
+    labels = ["O"]
+    labels += [
+        "%s-%s"%(p,l) for l in ["GPE", "NORP", "ORG", "PERSON"] for p in "BILU"
+    ]
+    lf_analysis = LFAnalysis(
+        [analysis_doc],
+        labels,
+        strict_match=True
+    )
+    result = lf_analysis.lf_conflicts(agg=True)
+    assert (result['name_1'].item() == 0.0)
+    assert (result['name_2'].item() == 0.0)
+    assert (result['org_1'].item() == 2/3)
+    assert (result['org_2'].item() == 1.0)
+    assert (result['place_1'].item() == 1.0)
+
+
+def test_lf_conflicts_without_strict_match_with_prefixes_with_agg(
+    analysis_doc
+):
+    """ Test expected conflicts across below spans:
+
+    Spans:
+        "name_1": Pierre (PERSON), Lison (PERSON), Pierre(PERSON)
+        "name_2": Pierre (PERSON), Lison (PERSON)
+        "org_1": Norwegian (ORG), Computing (ORG), Center(ORG)
+        "org_2": Norwegian (ORG), Computing (ORG), Oslo (ORG)
+        "place_1": Norwegian (NORP), Oslo (GPE)
+
+    Conflicts:
+        name_1: 0/3
+        name_2: 0/2
+        org_1: 1/3
+        org_2: 2/3
+        place_1: 2/2
+    """
+    labels = ["O"]
+    labels += [
+        "%s-%s"%(p,l) for l in ["GPE", "NORP", "ORG", "PERSON"] for p in "BILU"
+    ]
+    lf_analysis = LFAnalysis(
+        [analysis_doc],
+        labels,
+        strict_match=False
+    )
+    result = lf_analysis.lf_conflicts(agg=True)
+    assert (result['name_1'].item() == 0.0)
+    assert (result['name_2'].item() == 0.0)
+    assert (result['org_1'].item() == 1/3)
+    assert (result['org_2'].item() == 2/3)
+    assert (result['place_1'].item() == 1.0)
+
+
+def test_lf_conflicts_without_strict_match_without_prefixes_with_agg(
+    analysis_doc
+):
+    """ Test expected conflicts across below spans:
+
+    Spans:
+        "name_1": Pierre (PERSON), Lison (PERSON), Pierre(PERSON)
+        "name_2": Pierre (PERSON), Lison (PERSON)
+        "org_1": Norwegian (ORG), Computing (ORG), Center(ORG)
+        "org_2": Norwegian (ORG), Computing (ORG), Oslo (ORG)
+        "place_1": Norwegian (NORP), Oslo (GPE)
+
+    Conflicts:
+        name_1: 0/3
+        name_2: 0/2
+        org_1: 1/3
+        org_2: 2/3
+        place_1: 2/2
+    """
+    labels = ["O", "GPE", "NORP", "ORG", "PERSON"]
+    lf_analysis = LFAnalysis(
+        [analysis_doc],
+        labels,
+        strict_match=False
+    )
+    result = lf_analysis.lf_conflicts(agg=True)
+    assert (result['name_1'].item() == 0.0)
+    assert (result['name_2'].item() == 0.0)
+    assert (result['org_1'].item() == 1/3)
+    assert (result['org_2'].item() == 2/3)
+    assert (result['place_1'].item() == 1.0)

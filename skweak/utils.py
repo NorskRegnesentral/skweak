@@ -525,6 +525,7 @@ def _spans_to_array(
     label2idx: Dict[str, int],
     labels_without_prefix: Set[str],
     prefixes: Optional[Set[str]] = None,
+    warn_missing_labels: bool = False
 ) -> np.ndarray:
     """Convert the annotations of a spacy document into a 2D array.
     Each row corresponds to a token, and each column to a labelling
@@ -544,6 +545,9 @@ def _spans_to_array(
     """
     if sources is None:
         sources = list(doc.spans.keys())
+    
+    if warn_missing_labels:
+        missing_labels = set()
 
     # Creating the numpy array itself
     data = np.zeros((len(doc), len(sources)), dtype=np.int16)
@@ -551,6 +555,8 @@ def _spans_to_array(
     for source_index, source in enumerate(sources):
         for span in doc.spans.get(source, []):
             if span.label_ not in labels_without_prefix:
+                if warn_missing_labels:
+                    missing_labels.add(span.label_)
                 continue
 
             if prefixes is None:
@@ -583,6 +589,12 @@ def _spans_to_array(
                         "L-%s" % span.label_
                     ]
 
+    if warn_missing_labels:
+        print(
+            "WARNING: \
+            Span labels were found in the dataset that were not provided \
+            in `labels_without_prefices`: {}".format(missing_labels)
+        )
     return data
 
 
