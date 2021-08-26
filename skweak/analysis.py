@@ -30,11 +30,12 @@ class LFAnalysis:
         in the LF Analysis. Otherwise, the union of all sources
         (across documents) are used.
 
-        If `strict_match` is True, labels such as I-DATE and B-DATE shall be 
-        considered unique and different labels. If `strict_match` is False,
-        labels such as I-DATE and B-DATE will be normalized to a single 
-        label DATE. Note `strict_match` should only be set as True, when
-        using labels with BIOLU format. 
+        If `strict_match` is False,labels such as I-DATE and B-DATE will be
+        normalized to a single label DATE. 
+        
+        Note `strict_match` should only be set as True, when using labels
+        with BIOLU format. If `strict_match` is True, labels such as I-DATE
+        and B-DATE shall be considered unique and different labels.
         """
         self.corpus = corpus
         self.sources, self.sources2idx = self._get_corpus_sources(sources)
@@ -100,11 +101,34 @@ class LFAnalysis:
     def lf_target_labels(self) -> Dict[str, List[int]]:
         """Infer the target labels of each LF based on evidence in the
         label matrix. Excludes null token label.
+
+        NB: If `strict_match` is true for the LFAnalysis instance the target
+        labels will be comprised of BILU labels for each normalized target
+        label in a LF's domain. For example, if a LF returns [NULL,  I-PERSON,
+        B-PERSON, L-PERSON] across the samples in the corpus, the target set
+        will still be [NULL,  I-PERSON, B-PERSON, L-PERSON, U-PERSON].
         """
-        return {
-            self.sources[i]: sorted(list(set(self._L_sparse[:, i].data)))
-            for i in range(self._L_sparse.shape[1])
-        }
+        if self.strict_match:
+            target_label_idxs = {}
+            for i in range(self._L_sparse.shape[1]):
+                target_label_idxs_with_prefixes = set()
+                for label_idx in set(self._L_sparse[:, i].data):
+                    label_without_prefix = self.labels[label_idx].split('-')[1]
+                    for prefix in 'BILU':
+                        target_label_idxs_with_prefixes.add(
+                            self.label2idx[
+                                '{}-{}'.format(prefix, label_without_prefix)
+                            ]
+                        )
+                target_label_idxs[self.sources[i]] = list(
+                    target_label_idxs_with_prefixes
+                )
+        else:
+            target_label_idxs = {
+                self.sources[i]: sorted(list(set(self._L_sparse[:, i].data)))
+                for i in range(self._L_sparse.shape[1])
+            }
+        return target_label_idxs
 
 
     def lf_coverages(self, agg:bool = False) -> pandas.DataFrame:
@@ -126,6 +150,12 @@ class LFAnalysis:
             # of tokens labeled by LF X as Y
             --------------------------------------------------------
             # of distinct tokens labeled as Y across all LFs
+
+        NB: If `strict_match` is true for the LFAnalysis instance the target
+        labels will be comprised of BILU labels for each normalized target
+        label in a LF's domain. For example, if a LF returns [NULL,  I-PERSON,
+        B-PERSON, L-PERSON] across the samples in the corpus, the target set
+        will still be [NULL,  I-PERSON, B-PERSON, L-PERSON, U-PERSON].
         """
         if agg:
             # Compute the number of tokens covered by each LF
@@ -315,11 +345,17 @@ class LFAnalysis:
         I-PERSON, etc.).
 
         - If we encounter a label that has not been indexed by the LFAnalysis
-        instance the token is assigned the null label.
+        instance the token is assigned the null label (0).
 
         - If there are labels that are indexed by LFAnalysis but are not 
-        included in the gold dataset, we normalize the LF labels, setting
-        these values to 0.
+        included in the gold dataset, we normalize the LF labels, assigning
+        them the null label (0).
+
+        - If `strict_match` is true for the LFAnalysis instance the target
+        labels will be comprised of BILU labels for each normalized target
+        label in a LF's domain. For example, if a LF returns [NULL,  I-PERSON,
+        B-PERSON, L-PERSON] across the samples in the corpus, the target set
+        will still be [NULL,  I-PERSON, B-PERSON, L-PERSON, U-PERSON].
         """
         # Check for same number of docs
         assert (len(self.corpus) == len(Y))

@@ -276,7 +276,111 @@ def test_conflicts_without_strict_match_without_prefixes(analysis_corpus):
 # ----------------
 # LF TARGETS TESTS
 # ----------------
-def test_lf_targets(analysis_corpus):
+def test_lf_targets_with_strict_match_with_prefixes(analysis_corpus):
+    """ Test expected targets across below spans:
+
+    Spans:
+        "name_1": Pierre (B-PERSON), Lison (L-PERSON), Pierre(U-PERSON)
+        "name_2": Pierre (B-PERSON), Lison (L-PERSON)
+        "org_1": Norwegian (B-ORG), Computing (I-ORG), Center(L-ORG)
+        "org_2": Norwegian (B-ORG), Computing (L-ORG), Oslo (U-ORG)
+        "place_1": Norwegian (U-NORP), Oslo (U-GPE)
+
+    """
+    labels = ["O"]
+    labels += [
+        "%s-%s"%(p,l) for l in ["GPE", "NORP", "ORG", "PERSON"] for p in "BILU"
+    ]
+    lf_analysis = LFAnalysis(
+        analysis_corpus,
+        labels,
+        strict_match=True
+    )
+    result = lf_analysis.lf_target_labels()
+
+    assert (
+        set(result["name_1"]) == 
+        set([
+            lf_analysis.label2idx["B-PERSON"],
+            lf_analysis.label2idx["I-PERSON"],
+            lf_analysis.label2idx["L-PERSON"],
+            lf_analysis.label2idx["U-PERSON"],
+        ])
+    )
+    assert (
+        set(result["name_2"]) == 
+        set([
+            lf_analysis.label2idx["B-PERSON"],
+            lf_analysis.label2idx["I-PERSON"],
+            lf_analysis.label2idx["L-PERSON"],
+            lf_analysis.label2idx["U-PERSON"],
+        ])
+    )
+    assert (
+        set(result["org_1"]) == 
+        set([
+            lf_analysis.label2idx["B-ORG"],
+            lf_analysis.label2idx["I-ORG"],
+            lf_analysis.label2idx["L-ORG"],
+            lf_analysis.label2idx["U-ORG"],
+        ])
+    )
+    assert (
+        set(result["org_2"]) == 
+        set([
+            lf_analysis.label2idx["B-ORG"],
+            lf_analysis.label2idx["I-ORG"],
+            lf_analysis.label2idx["L-ORG"],
+            lf_analysis.label2idx["U-ORG"],
+        ])
+    )
+    assert (
+        set(result["place_1"]) == 
+        set([
+            lf_analysis.label2idx["B-NORP"],
+            lf_analysis.label2idx["I-NORP"],
+            lf_analysis.label2idx["L-NORP"],
+            lf_analysis.label2idx["U-NORP"],
+            lf_analysis.label2idx["B-GPE"],
+            lf_analysis.label2idx["I-GPE"],
+            lf_analysis.label2idx["L-GPE"],
+            lf_analysis.label2idx["U-GPE"],
+        ])
+    ) 
+
+
+def test_lf_targets_without_strict_match_with_prefixes(analysis_corpus):
+    """ Test expected targets across below spans:
+
+    Spans:
+        "name_1": Pierre (PERSON), Lison (PERSON), Pierre(PERSON)
+        "name_2": Pierre (PERSON), Lison (PERSON)
+        "org_1": Norwegian (ORG), Computing (ORG), Center(ORG)
+        "org_2": Norwegian (ORG), Computing (ORG), Oslo (ORG)
+        "place_1": Norwegian (NORP), Oslo (GPE)
+
+    """
+    labels = ["O"]
+    labels += [
+        "%s-%s"%(p,l) for l in ["GPE", "NORP", "ORG", "PERSON"] for p in "BILU"
+    ]
+    lf_analysis = LFAnalysis(
+        analysis_corpus,
+        labels,
+        strict_match=False
+    )
+    result = lf_analysis.lf_target_labels()
+
+    assert result["name_1"] == [lf_analysis.label2idx["PERSON"]]
+    assert result["name_2"] == [lf_analysis.label2idx["PERSON"]]
+    assert result["org_1"] == [lf_analysis.label2idx["ORG"]]
+    assert result["org_2"] == [lf_analysis.label2idx["ORG"]]
+    assert set(result["place_1"]) == set([
+        lf_analysis.label2idx["NORP"],
+        lf_analysis.label2idx["GPE"]])
+
+
+def test_lf_targets_without_strict_match_without_prefixes(analysis_corpus):
     """ Test expected targets across below spans:
     Spans:
         "name_1": Pierre (PERSON), Lison (PERSON), Pierre(PERSON)
@@ -593,11 +697,11 @@ def test_lf_coverage_with_strict_match_with_prefixes_with_agg(analysis_corpus):
         "place_1": Norwegian (U-NORP), Oslo (U-GPE)
 
     Coverage:
-        "name_1": 3/3
-        "name_2": 2/2
-        "org_1": 3/3
-        "org_2": 3/4
-        "place_1": 2/2
+        "name_1": 3/3 (Target Set: (BILU)-PERSON)
+        "name_2": 2/3 (Target Set: (BILU)-PERSON)
+        "org_1": 3/4 (Target Set: (BILU)-ORG)
+        "org_2": 3/4 (Target Set: (BILU)-ORG)
+        "place_1": 2/2 (Target Set: (BILU)-NORP, (BILU)-GPE)
     """
     labels = ["O"]
     labels += [
@@ -610,8 +714,8 @@ def test_lf_coverage_with_strict_match_with_prefixes_with_agg(analysis_corpus):
     )
     result = lf_analysis.lf_coverages(agg=True)
     assert(result["name_1"].item() == 1.0)
-    assert(result["name_2"].item() == 1.0)
-    assert(result["org_1"].item() == 1.0)
+    assert(result["name_2"].item() == 2/3)
+    assert(result["org_1"].item() == 3/4)
     assert(result["org_2"].item() == 3/4)
     assert(result["place_1"].item() == 1.0)
 
@@ -1262,11 +1366,11 @@ def test_lf_conflicts_without_strict_match_with_prefixes_with_agg(
     """ Test expected conflicts across below spans:
 
     Spans:
-        "name_1": Pierre (B-PERSON), Lison (L-PERSON), Pierre(U-PERSON)
-        "name_2": Pierre (B-PERSON), Lison (L-PERSON)
-        "org_1": Norwegian (B-ORG), Computing (I-ORG), Center(L-ORG)
-        "org_2": Norwegian (B-ORG), Computing (L-ORG), Oslo (U-ORG)
-        "place_1": Norwegian (U-NORP), Oslo (U-GPE)
+        "name_1": Pierre (PERSON), Lison (PERSON), Pierre(PERSON)
+        "name_2": Pierre (PERSON), Lison (PERSON)
+        "org_1": Norwegian (ORG), Computing (ORG), Center(ORG)
+        "org_2": Norwegian (ORG), Computing (ORG), Oslo (ORG)
+        "place_1": Norwegian (NORP), Oslo (GPE)
 
     Conflicts:
         name_1: 0/3
@@ -1327,44 +1431,9 @@ def test_lf_conflicts_without_strict_match_without_prefixes_with_agg(
 # ------------------------
 # LF ACCURACY TESTS w/ Agg
 # ------------------------
-# def test_lf_accs_with_strict_match_with_prefixes_with_agg(
-#     analysis_corpus
-# ):
-#     """ Test expected conflicts across below spans:
-
-#     Spans:
-#         "name_1": Pierre (PERSON), Lison (PERSON), Pierre(PERSON)
-#         "name_2": Pierre (PERSON), Lison (PERSON)
-#         "org_1": Norwegian (ORG), Computing (ORG), Center(ORG)
-#         "org_2": Norwegian (ORG), Computing (ORG), Oslo (ORG)
-#         "place_1": Norwegian (NORP), Oslo (GPE)
-
-#         name_1: 0/3
-#         name_2: 0/2
-#         org_1: 2/3
-#         org_2: 3/3
-#         place_1: 3/3
-#     """
-#     labels = ["O"]
-#     labels += [
-#         "%s-%s"%(p,l) for l in ["GPE", "NORP", "ORG", "PERSON"] for p in "BILU"
-#     ]
-#     lf_analysis = LFAnalysis(
-#         analysis_corpus,
-#         labels,
-#         strict_match=True
-#     )
-#     result = lf_analysis.lf_conflicts(agg=True)
-#     assert (result['name_1'].item() == 0.0)
-#     assert (result['name_2'].item() == 0.0)
-#     assert (result['org_1'].item() == 2/3)
-#     assert (result['org_2'].item() == 1.0)
-#     assert (result['place_1'].item() == 1.0)
-
-
-def test_lf_acc_without_strict_match_with_prefixes_with_agg(
+def test_lf_accs_with_strict_match_with_prefixes_with_agg(
     analysis_corpus,
-    analysis_corpus_y
+    analysis_corpus_y,
 ):
     """ Test expected conflicts across below spans:
 
@@ -1374,6 +1443,46 @@ def test_lf_acc_without_strict_match_with_prefixes_with_agg(
         "org_1": Norwegian (B-ORG), Computing (I-ORG), Center(L-ORG)
         "org_2": Norwegian (B-ORG), Computing (L-ORG), Oslo (U-ORG)
         "place_1": Norwegian (U-NORP), Oslo (U-GPE)
+
+    Accuracy:
+        name_1: 19/19 
+        name_2: 18/19 (misclassifies second Pierre)
+        org_1: 19/19 
+        org_2: 16/19 (misclassifies Computing, Center, and Oslo)
+        place_1: 18/19 (misclassifies Norwegian)
+    """
+    labels = ["O"]
+    labels += [
+        "%s-%s"%(p,l) for l in ["GPE", "NORP", "ORG", "PERSON"] for p in "BILU"
+    ]
+    lf_analysis = LFAnalysis(
+        analysis_corpus,
+        labels,
+        strict_match=True
+    )
+    result = lf_analysis.lf_empirical_accuracies(
+        *analysis_corpus_y,
+        agg=True
+    )
+    assert(result['acc']['name_1'] == 1.0)
+    assert(abs(result['acc']['name_2'] - 18/19) <= 1e-5)
+    assert(result['acc']['org_1'] == 1.0)
+    assert(abs(result['acc']['org_2'] - 16/19) <= 1e-5)
+    assert(abs(result['acc']['place_1'] - 18/19) <= 1e-5)
+
+
+def test_lf_acc_without_strict_match_with_prefixes_with_agg(
+    analysis_corpus,
+    analysis_corpus_y
+):
+    """ Test expected conflicts across below spans:
+
+    Spans:
+        "name_1": Pierre (PERSON), Lison (PERSON), Pierre(PERSON)
+        "name_2": Pierre (PERSON), Lison (PERSON)
+        "org_1": Norwegian (ORG), Computing (ORG), Center(ORG)
+        "org_2": Norwegian (ORG), Computing (ORG), Oslo (ORG)
+        "place_1": Norwegian (NORP), Oslo (GPE)
 
     Accuracy:
         name_1: 19/19 (gets all PERSON tags)
@@ -1442,8 +1551,7 @@ def test_lf_acc_without_strict_match_without_prefixes_with_agg(
 # ----------------------------
 # LF ACCURACY TESTS w/out Agg
 # ----------------------------
-
-def test_lf_acc_without_strict_match_with_prefixes_without_agg(
+def test_lf_acc_with_strict_match_with_prefixes_without_agg(
     analysis_corpus,
     analysis_corpus_y
 ):
@@ -1455,6 +1563,94 @@ def test_lf_acc_without_strict_match_with_prefixes_without_agg(
         "org_1": Norwegian (B-ORG), Computing (I-ORG), Center(L-ORG)
         "org_2": Norwegian (B-ORG), Computing (L-ORG), Oslo (U-ORG)
         "place_1": Norwegian (U-NORP), Oslo (U-GPE)
+
+    Accuracy:
+        name_1:
+            B-PERSON: 19/19
+            I-PERSON: 19/19
+            L-PERSON: 19/19
+            U-PERSON: 19/19
+        name_2:
+            B-PERSON: 19/19
+            I-PERSON: 19/19
+            L-PERSON: 19/19
+            U-PERSON: 18/19 (misclassifies 2nd Pierre)
+        org_1:
+            B-ORG: 19/19
+            I-ORG: 19/19
+            L-ORG: 19/19
+            U-ORG: 19/19 
+        org_2:
+            B-ORG: 19/19
+            I-ORG: 18/19
+            L-ORG: 17/19
+            U-ORG: 18/19 
+        place_1:
+            B-NORP: 19/19
+            I-NORP: 19/19
+            L-NORP: 19/19
+            U-NORP: 18/19 
+            B-GPE: 19/19
+            I-GPE: 19/19
+            L-GPE: 19/19
+            U-GPE: 19/19 
+    """
+    labels = ["O"]
+    labels += [
+        "%s-%s"%(p,l) for l in ["GPE", "NORP", "ORG", "PERSON"] for p in "BILU"
+    ]
+    lf_analysis = LFAnalysis(
+        analysis_corpus,
+        labels,
+        strict_match=True
+    )
+    result = lf_analysis.lf_empirical_accuracies(
+        *analysis_corpus_y,
+        agg=False
+    )
+    assert(result['B-PERSON']['name_1'] == 1.0)
+    assert(result['I-PERSON']['name_1'] == 1.0)
+    assert(result['L-PERSON']['name_1'] == 1.0)
+    assert(result['U-PERSON']['name_1'] == 1.0)
+
+    assert(result['B-PERSON']['name_2'] == 1.0)
+    assert(result['I-PERSON']['name_2'] == 1.0)
+    assert(result['L-PERSON']['name_2'] == 1.0)
+    assert(abs(result['U-PERSON']['name_2'] - 18/19) <= 1e-5)
+
+    assert(result['B-ORG']['org_1'] == 1.0)
+    assert(result['I-ORG']['org_1'] == 1.0)
+    assert(result['L-ORG']['org_1'] == 1.0)
+    assert(result['U-ORG']['org_1'] == 1.0)
+
+    assert(result['B-ORG']['org_2'] == 1.0)
+    assert(abs(result['I-ORG']['org_2'] - 18/19) <= 1e-5)
+    assert(abs(result['L-ORG']['org_2'] - 17/19) <= 1e-5)
+    assert(abs(result['U-ORG']['org_2'] - 18/19) <= 1e-5)
+
+    assert(result['B-NORP']['place_1'] == 1.0)
+    assert(result['I-NORP']['place_1'] == 1.0)
+    assert(result['L-NORP']['place_1'] == 1.0)
+    assert(abs(result['U-NORP']['place_1'] - 18/19) <= 1e-5)
+
+    assert(result['B-GPE']['place_1'] == 1.0)
+    assert(result['I-GPE']['place_1'] == 1.0)
+    assert(result['L-GPE']['place_1'] == 1.0)
+    assert(result['U-GPE']['place_1'] == 1.0)
+
+
+def test_lf_acc_without_strict_match_with_prefixes_without_agg(
+    analysis_corpus,
+    analysis_corpus_y
+):
+    """ Test expected conflicts across below spans:
+
+    Spans:
+        "name_1": Pierre (PERSON), Lison (PERSON), Pierre(PERSON)
+        "name_2": Pierre (PERSON), Lison (PERSON)
+        "org_1": Norwegian (ORG), Computing (ORG), Center(ORG)
+        "org_2": Norwegian (ORG), Computing (ORG), Oslo (ORG)
+        "place_1": Norwegian (NORP), Oslo (GPE)
 
     Accuracy:
         name_1:
