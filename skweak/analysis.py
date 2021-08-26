@@ -5,6 +5,7 @@ from typing import Dict, List, Optional, Tuple, Set
 import numpy as np
 import pandas
 from scipy import sparse
+import scipy
 from spacy.tokens import Doc
 
 from skweak import utils
@@ -44,7 +45,7 @@ class LFAnalysis:
             self.prefixes,
             self.labels_without_prefix
         ) = self._get_token_level_labels(labels)
-        self.L = self._corpus_to_token_array()
+        self.L = self._corpus_to_token_array(self.corpus, self.sources)
         self._L_sparse = sparse.csr_matrix(self.L)
         self.label_row_indices = self._get_row_indices_with_labels()
 
@@ -98,7 +99,7 @@ class LFAnalysis:
 
     def lf_target_labels(self) -> Dict[str, List[int]]:
         """Infer the target labels of each LF based on evidence in the
-        label matrix.
+        label matrix. Excludes null token label.
         """
         return {
             self.sources[i]: sorted(list(set(self._L_sparse[:, i].data)))
@@ -273,7 +274,8 @@ class LFAnalysis:
         Y:List[Doc],
         gold_span_name:str,
         gold_labels:List[str],
-        print_warnings:bool = True
+        agg:bool = False,
+        print_warnings:bool = True,
     ) -> pandas.DataFrame:
         """ Compute empirical accuracies. 
 
@@ -289,11 +291,12 @@ class LFAnalysis:
         label and LF:
 
         Accuracy(LF X, Label Y) = 
-            # of tokens labeled correctly by LF as Label Y
-            ----------------------------------------------
-            # of tokens labeld by LF X as Y
+            # of tokens labeled correctly by LF as Y or Null Token
+            ------------------------------------------------------------
+            # of tokens labeled as Y or Null Token in Gold Data
 
         NB:
+        - We assume Y has the same docs as the corpus
         - Any ground truth labels that are not covered by the LF are set to 0.
                   
           For example, if LF1 has a target label set [0, 1, 2], the
@@ -313,8 +316,94 @@ class LFAnalysis:
 
         - If we encounter a label that has not been indexed by the LFAnalysis
         instance the token is assigned the null label.
+
+        - If there are labels that are indexed by LFAnalysis but are not 
+        included in the gold dataset, we normalize the LF labels, setting
+        these values to 0.
         """
-        raise NotImplementedError()
+        # Check for same number of docs
+        assert (len(self.corpus) == len(Y))
+
+        # Determine if there are labels within the LF Analysis object
+        # that do not exist in the gold labels -- we'll exclude
+        # these from accuracy analyses
+        missing_labels = set(self.labels) - set(gold_labels)
+        if len(missing_labels) and print_warnings:
+            print("WARNING: \
+            The following are not presented in the gold dataset: \
+            {}".format(missing_labels)
+            )
+
+        # Create Y labels matrix
+        Y_L_sparse = sparse.csr_matrix(
+            self._corpus_to_token_array(Y, [gold_span_name])
+        )
+
+        if agg:
+            result = {}
+            for lf, idxs in self.lf_target_labels().items():
+                lf_idx = self.sources2idx[lf]
+
+                # Since target labels don't include 0 (null token)
+                # we manually introduce the null token as a target label
+                idxs.append(0)
+
+                # Identify labels that are outside of LF's domain
+                non_target_label_idxs = list(
+                    set(self.label2idx.values()) - set(idxs)
+                )
+
+                # Null out the values in the ground truth vector 
+                # that have labels outside the domain of the LF
+                gt = Y_L_sparse.copy()
+                for label_idx in non_target_label_idxs:
+                    gt[self._get_indices_for_lf_with_label(
+                        Y_L_sparse,
+                        0, # 0th index = gold label column in gt matrix
+                        label_idx
+                        )] = 0
+
+                # Determine agreement between ground truth and LF predictions
+                # Sparse matrices can compute disagreement quickly (not 
+                # agreement); so we shall compute disagreement and take
+                # converse to compute accuracy
+                disagreement = (gt != self._L_sparse.getcol(lf_idx))
+
+                # Compute accuracy
+                result[lf] = 1.0 - (disagreement.sum() / (self.L.shape[0]))
+
+            return pandas.DataFrame.from_dict(
+                result, orient='index', columns=['acc'])
+        else:
+            result = defaultdict(dict)
+            for lf, idxs in self.lf_target_labels().items():
+                lf_idx = self.sources2idx[lf]
+
+                # Since target labels don't include 0 (null token)
+                # we manually introduce the null token as a target label
+                # idxs.append(0)
+
+                # Null out the values in the ground truth vector 
+                # other than the given label
+                for label_idx in idxs:
+                    if label_idx in missing_labels:
+                        continue
+                    gt = (Y_L_sparse.copy() == label_idx) 
+                    preds = (self._L_sparse.getcol(lf_idx) == label_idx)
+
+                    # Sparse matrices can compute disagreement quickly (not 
+                    # agreement); so we shall compute disagreement and take
+                    # converse to compute accuracy
+                    overlap = (gt != preds)
+
+                    # Compute accuracy
+                    result[lf][self.labels[label_idx]] = (
+                        1 - (overlap.sum() / (self.L.shape[0]))
+                    )
+
+            return pandas.DataFrame.from_dict(
+                result, orient='index', columns=self.labels[1:]).fillna(0)
+
 
     # ----------------------
     # Initialization Helpers
@@ -367,18 +456,22 @@ class LFAnalysis:
         }
 
 
-    def _corpus_to_token_array(self) -> np.ndarray:
+    def _corpus_to_token_array(
+        self,
+        corpus:List[Doc],
+        sources:List[str]
+    ) -> np.ndarray:
         """ Convert corpus to a matrix of dimensions:
         (# of tokens in corpus, # sources)
         """
         return np.concatenate([
             utils._spans_to_array(
                 doc,
-                self.sources,
+                sources,
                 self.label2idx,
                 self.labels_without_prefix,
                 self.prefixes if self.strict_match else None
-            ) for doc in self.corpus
+            ) for doc in corpus
         ])
 
 
@@ -402,17 +495,17 @@ class LFAnalysis:
         return np.ravel(np.where(self._L_sparse.sum(axis=1) != 0, 1, 0))
 
 
-    def _covered_by_label(self, label_val:int) -> np.ndarray:
-        """Get indicator vector z where z_i = 1 if x_1 is labeled label_val
+    def _covered_by_label(self, label_idx:int) -> np.ndarray:
+        """Get indicator vector z where z_i = 1 if x_1 is labeled label_idx
         by at least one LF.
         """ 
-        return (self._L_sparse == label_val).max(axis=1)
+        return (self._L_sparse == label_idx).max(axis=1)
 
 
-    def _covered_by_label_counts(self, label_val:int) -> np.ndarray:
+    def _covered_by_label_counts(self, label_idx:int) -> np.ndarray:
         """Get count vector c where c_i is the # of times the ith source
         predicted a token to have the label value"""
-        return np.ravel((self._L_sparse == label_val).sum(axis=0))
+        return np.ravel((self._L_sparse == label_idx).sum(axis=0))
 
 
     def _overlapped_data_points(self) -> np.ndarray:
@@ -432,3 +525,15 @@ class LFAnalysis:
             np.unique(np.unravel_index(row.data, self.L.shape)[0])
             for row in m
         ]
+
+    def _get_indices_for_lf_with_label(
+        self,
+        L_sparse: sparse.csr_matrix,
+        lf_idx:int,
+        label_idx:int
+    ) -> Tuple[List[int], List[int]]:
+        """ Get indices within sparse matrix that have label_idx for LF.
+        """
+        lf_vals = L_sparse.getcol(lf_idx)
+        rows, cols, _ =  sparse.find(lf_vals == label_idx)
+        return rows, cols

@@ -1,4 +1,3 @@
-
 import re
 
 from spacy.tokens import Span #type: ignore
@@ -8,7 +7,7 @@ from skweak.analysis import LFAnalysis
 
 
 @pytest.fixture(scope="session")
-def analysis_doc(nlp):
+def analysis_corpus(nlp):
     """ Generate a sample document with conflicts, agreements, and overlaps.
     """
     spacy_doc = nlp(
@@ -32,13 +31,29 @@ def analysis_doc(nlp):
         Span(spacy_doc, 9, 10, label="NORP"),
         Span(spacy_doc, 17, 18, label="GPE")
     ]
-    return spacy_doc
+    return [spacy_doc]
+
+
+@pytest.fixture(scope="session")
+def analysis_corpus_y(nlp):
+    """ Generate ground truth for the `analysis_corpus`
+    """
+    spacy_doc = nlp(
+        re.sub("\\s+", " ", """This is a test for Pierre Lison from the
+                     Norwegian Computing Center. Pierre is living in Oslo."""))
+    spacy_doc.spans["ground_truth"] = [
+        Span(spacy_doc, 5, 7, label="PERSON"),
+        Span(spacy_doc, 13, 14, label="PERSON"),
+        Span(spacy_doc, 9, 12, label="ORG"),
+        Span(spacy_doc, 17, 18, label="GPE")
+    ]
+    return [spacy_doc], "ground_truth", ["O", "PERSON", "ORG", "GPE"]
 
 
 # ---------------------
 # LABEL OVERLAP TESTS
 # ---------------------
-def test_overlaps_with_strict_match_with_prefixes(analysis_doc):
+def test_overlaps_with_strict_match_with_prefixes(analysis_corpus):
     """ Test expected overlaps across below spans:
   
     Spans:
@@ -64,7 +79,7 @@ def test_overlaps_with_strict_match_with_prefixes(analysis_doc):
         "%s-%s"%(p,l) for l in ["GPE", "NORP", "ORG", "PERSON"] for p in "BILU"
     ]
     lf_analysis = LFAnalysis(
-        [analysis_doc],
+        analysis_corpus,
         labels,
         strict_match=True
     )
@@ -80,7 +95,7 @@ def test_overlaps_with_strict_match_with_prefixes(analysis_doc):
     assert result['overlap']['U-GPE'] == 1.0
 
 
-def test_overlaps_without_strict_match_with_prefixes(analysis_doc):
+def test_overlaps_without_strict_match_with_prefixes(analysis_corpus):
     """ Test expected overlaps across below spans:
   
     Spans:
@@ -101,7 +116,7 @@ def test_overlaps_without_strict_match_with_prefixes(analysis_doc):
         "%s-%s"%(p,l) for l in ["GPE", "NORP", "ORG", "PERSON"] for p in "BILU"
     ]
     lf_analysis = LFAnalysis(
-        [analysis_doc],
+        analysis_corpus,
         labels,
         strict_match=False
     )
@@ -112,7 +127,7 @@ def test_overlaps_without_strict_match_with_prefixes(analysis_doc):
     assert result['overlap']['GPE'] == 1.0
 
 
-def test_overlaps_without_strict_match_without_prefixes(analysis_doc):
+def test_overlaps_without_strict_match_without_prefixes(analysis_corpus):
     """ Test expected overlaps across below spans:
   
     Spans:
@@ -130,7 +145,7 @@ def test_overlaps_without_strict_match_without_prefixes(analysis_doc):
     """
     labels = ["O", "GPE", "NORP", "ORG", "PERSON"]
     lf_analysis = LFAnalysis(
-        [analysis_doc],
+        analysis_corpus,
         labels,
         strict_match=False
     )
@@ -143,7 +158,7 @@ def test_overlaps_without_strict_match_without_prefixes(analysis_doc):
 # ---------------------
 # LABEL CONFLICT TESTS
 # ---------------------
-def test_conflicts_with_strict_match_with_prefixes(analysis_doc):
+def test_conflicts_with_strict_match_with_prefixes(analysis_corpus):
     """ Test expected conflicts across below spans:
   
     Spans:
@@ -175,7 +190,7 @@ def test_conflicts_with_strict_match_with_prefixes(analysis_doc):
         "%s-%s"%(p,l) for l in ["GPE", "NORP", "ORG", "PERSON"] for p in "BILU"
     ]
     lf_analysis = LFAnalysis(
-        [analysis_doc],
+        analysis_corpus,
         labels,
         strict_match=True
     )
@@ -191,7 +206,7 @@ def test_conflicts_with_strict_match_with_prefixes(analysis_doc):
     assert result['conflict']['U-GPE'] == 1.0
 
 
-def test_conflicts_without_strict_match_with_prefixes(analysis_doc):
+def test_conflicts_without_strict_match_with_prefixes(analysis_corpus):
     """ Test expected conflicts across below spans:
   
     Spans:
@@ -215,7 +230,7 @@ def test_conflicts_without_strict_match_with_prefixes(analysis_doc):
         "%s-%s"%(p,l) for l in ["GPE", "NORP", "ORG", "PERSON"] for p in "BILU"
     ]
     lf_analysis = LFAnalysis(
-        [analysis_doc],
+        analysis_corpus,
         labels,
         strict_match=False
     )
@@ -226,7 +241,7 @@ def test_conflicts_without_strict_match_with_prefixes(analysis_doc):
     assert result['conflict']['GPE'] == 1.0
 
 
-def test_conflicts_without_strict_match_without_prefixes(analysis_doc):
+def test_conflicts_without_strict_match_without_prefixes(analysis_corpus):
     """ Test expected conflicts across below spans:
   
     Spans:
@@ -247,7 +262,7 @@ def test_conflicts_without_strict_match_without_prefixes(analysis_doc):
     """
     labels = ["O", "GPE", "NORP", "ORG", "PERSON"]
     lf_analysis = LFAnalysis(
-        [analysis_doc],
+        analysis_corpus,
         labels,
         strict_match=False
     )
@@ -261,7 +276,7 @@ def test_conflicts_without_strict_match_without_prefixes(analysis_doc):
 # ----------------
 # LF TARGETS TESTS
 # ----------------
-def test_lf_targets(analysis_doc):
+def test_lf_targets(analysis_corpus):
     """ Test expected targets across below spans:
     Spans:
         "name_1": Pierre (PERSON), Lison (PERSON), Pierre(PERSON)
@@ -272,7 +287,7 @@ def test_lf_targets(analysis_doc):
     """
     labels = ["O", "GPE", "NORP", "ORG", "PERSON"]
     lf_analysis = LFAnalysis(
-        [analysis_doc],
+        analysis_corpus,
         labels,
         strict_match=False
     )
@@ -290,7 +305,7 @@ def test_lf_targets(analysis_doc):
 # ---------------------------
 # LF COVERAGE TESTS w/out agg
 # ---------------------------
-def test_lf_coverage_with_strict_match_with_prefixes_without_agg(analysis_doc):
+def test_lf_coverage_with_strict_match_with_prefixes_without_agg(analysis_corpus):
     """ Test expected coverage across below spans:
   
     Spans:
@@ -361,7 +376,7 @@ def test_lf_coverage_with_strict_match_with_prefixes_without_agg(analysis_doc):
         "%s-%s"%(p,l) for l in ["GPE", "NORP", "ORG", "PERSON"] for p in "BILU"
     ]
     lf_analysis = LFAnalysis(
-        [analysis_doc],
+        analysis_corpus,
         labels,
         strict_match=True
     )
@@ -418,7 +433,7 @@ def test_lf_coverage_with_strict_match_with_prefixes_without_agg(analysis_doc):
 
 
 def test_lf_coverage_without_strict_match_with_prefixes_without_agg(
-    analysis_doc
+    analysis_corpus
 ):
     """ Test expected coverage across below spans:
   
@@ -460,7 +475,7 @@ def test_lf_coverage_without_strict_match_with_prefixes_without_agg(
         "%s-%s"%(p,l) for l in ["GPE", "NORP", "ORG", "PERSON"] for p in "BILU"
     ]
     lf_analysis = LFAnalysis(
-        [analysis_doc],
+        analysis_corpus,
         labels,
         strict_match=False
     )
@@ -493,7 +508,7 @@ def test_lf_coverage_without_strict_match_with_prefixes_without_agg(
 
 
 def test_lf_coverage_without_strict_match_without_prefixes_without_agg(
-    analysis_doc
+    analysis_corpus
 ):
     """ Test expected coverage across below spans:
   
@@ -532,7 +547,7 @@ def test_lf_coverage_without_strict_match_without_prefixes_without_agg(
     """
     labels = ["O", "GPE", "NORP", "ORG", "PERSON"]
     lf_analysis = LFAnalysis(
-        [analysis_doc],
+        analysis_corpus,
         labels,
         strict_match=False
     )
@@ -567,7 +582,7 @@ def test_lf_coverage_without_strict_match_without_prefixes_without_agg(
 # ------------------------
 # LF COVERAGE TESTS w/ agg
 # -------------------------
-def test_lf_coverage_with_strict_match_with_prefixes_with_agg(analysis_doc):
+def test_lf_coverage_with_strict_match_with_prefixes_with_agg(analysis_corpus):
     """ Test expected coverage across below spans:
   
     Spans:
@@ -589,7 +604,7 @@ def test_lf_coverage_with_strict_match_with_prefixes_with_agg(analysis_doc):
         "%s-%s"%(p,l) for l in ["GPE", "NORP", "ORG", "PERSON"] for p in "BILU"
     ]
     lf_analysis = LFAnalysis(
-        [analysis_doc],
+        analysis_corpus,
         labels,
         strict_match=True
     )
@@ -602,7 +617,7 @@ def test_lf_coverage_with_strict_match_with_prefixes_with_agg(analysis_doc):
 
 
 def test_lf_coverage_without_strict_match_with_prefixes_with_agg(
-    analysis_doc
+    analysis_corpus
 ):
     """ Test expected coverage across below spans:
   
@@ -625,7 +640,7 @@ def test_lf_coverage_without_strict_match_with_prefixes_with_agg(
         "%s-%s"%(p,l) for l in ["GPE", "NORP", "ORG", "PERSON"] for p in "BILU"
     ]
     lf_analysis = LFAnalysis(
-        [analysis_doc],
+        analysis_corpus,
         labels,
         strict_match=False
     )
@@ -638,7 +653,7 @@ def test_lf_coverage_without_strict_match_with_prefixes_with_agg(
 
 
 def test_lf_coverage_without_strict_match_without_prefixes_with_agg(
-    analysis_doc
+    analysis_corpus
 ):
     """ Test expected coverage across below spans:
   
@@ -658,7 +673,7 @@ def test_lf_coverage_without_strict_match_without_prefixes_with_agg(
     """
     labels = ["O", "GPE", "NORP", "ORG", "PERSON"]
     lf_analysis = LFAnalysis(
-        [analysis_doc],
+        analysis_corpus,
         labels,
         strict_match=False
     )
@@ -673,7 +688,7 @@ def test_lf_coverage_without_strict_match_without_prefixes_with_agg(
 # ----------------------------
 # LF OVERLAP TESTS w/out agg
 # -----------------------------
-def test_lf_overlaps_with_strict_match_with_prefixes_without_agg(analysis_doc):
+def test_lf_overlaps_with_strict_match_with_prefixes_without_agg(analysis_corpus):
     """ Test expected overlaps across below spans:
   
     Spans:
@@ -741,7 +756,7 @@ def test_lf_overlaps_with_strict_match_with_prefixes_without_agg(analysis_doc):
         "%s-%s"%(p,l) for l in ["GPE", "NORP", "ORG", "PERSON"] for p in "BILU"
     ]
     lf_analysis = LFAnalysis(
-        [analysis_doc],
+        analysis_corpus,
         labels,
         strict_match=True
     )
@@ -763,7 +778,7 @@ def test_lf_overlaps_with_strict_match_with_prefixes_without_agg(analysis_doc):
 
 
 def test_lf_overlaps_without_strict_match_with_prefixes_without_agg(
-    analysis_doc
+    analysis_corpus
 ):
     """ Test expected overlaps across below spans:
 
@@ -807,7 +822,7 @@ def test_lf_overlaps_without_strict_match_with_prefixes_without_agg(
         "%s-%s"%(p,l) for l in ["GPE", "NORP", "ORG", "PERSON"] for p in "BILU"
     ]
     lf_analysis = LFAnalysis(
-        [analysis_doc],
+        analysis_corpus,
         labels,
         strict_match=False
     )
@@ -827,7 +842,7 @@ def test_lf_overlaps_without_strict_match_with_prefixes_without_agg(
 
 
 def test_lf_overlaps_without_strict_match_without_prefixes_without_agg(
-    analysis_doc
+    analysis_corpus
 ):
     """ Test expected overlaps across below spans:
   
@@ -868,7 +883,7 @@ def test_lf_overlaps_without_strict_match_without_prefixes_without_agg(
     """
     labels = ["O", "GPE", "NORP", "ORG", "PERSON"]
     lf_analysis = LFAnalysis(
-        [analysis_doc],
+        analysis_corpus,
         labels,
         strict_match=False
     )
@@ -891,7 +906,7 @@ def test_lf_overlaps_without_strict_match_without_prefixes_without_agg(
 # -----------------------
 # LF OVERLAP TESTS w/ agg
 # -----------------------
-def test_lf_overlaps_with_strict_match_with_prefixes_with_agg(analysis_doc):
+def test_lf_overlaps_with_strict_match_with_prefixes_with_agg(analysis_corpus):
     """ Test expected overlaps across below spans:
   
     Spans:
@@ -914,7 +929,7 @@ def test_lf_overlaps_with_strict_match_with_prefixes_with_agg(analysis_doc):
         "%s-%s"%(p,l) for l in ["GPE", "NORP", "ORG", "PERSON"] for p in "BILU"
     ]
     lf_analysis = LFAnalysis(
-        [analysis_doc],
+        analysis_corpus,
         labels,
         strict_match=True
     )
@@ -926,7 +941,7 @@ def test_lf_overlaps_with_strict_match_with_prefixes_with_agg(analysis_doc):
     assert result['place_1'].item() == 1.0
 
 
-def test_lf_overlaps_without_strict_match_with_prefixes_with_agg(analysis_doc):
+def test_lf_overlaps_without_strict_match_with_prefixes_with_agg(analysis_corpus):
     """ Test expected overlaps across below spans:
 
     Spans:
@@ -949,7 +964,7 @@ def test_lf_overlaps_without_strict_match_with_prefixes_with_agg(analysis_doc):
         "%s-%s"%(p,l) for l in ["GPE", "NORP", "ORG", "PERSON"] for p in "BILU"
     ]
     lf_analysis = LFAnalysis(
-        [analysis_doc],
+        analysis_corpus,
         labels,
         strict_match=False
     )
@@ -962,7 +977,7 @@ def test_lf_overlaps_without_strict_match_with_prefixes_with_agg(analysis_doc):
 
 
 def test_lf_overlaps_without_strict_match_without_prefixes_with_agg(
-    analysis_doc
+    analysis_corpus
 ):
     """ Test expected overlaps across below spans:
   
@@ -983,7 +998,7 @@ def test_lf_overlaps_without_strict_match_without_prefixes_with_agg(
     """
     labels = ["O", "GPE", "NORP", "ORG", "PERSON"]
     lf_analysis = LFAnalysis(
-        [analysis_doc],
+        analysis_corpus,
         labels,
         strict_match=False
     )
@@ -999,7 +1014,7 @@ def test_lf_overlaps_without_strict_match_without_prefixes_with_agg(
 # LF CONFLICT TESTS w/out Agg
 # ---------------------------
 def test_lf_conflicts_with_strict_match_with_prefixes_without_agg(
-    analysis_doc
+    analysis_corpus
 ):
     """ Test expected conflicts across below spans:
   
@@ -1067,7 +1082,7 @@ def test_lf_conflicts_with_strict_match_with_prefixes_without_agg(
         "%s-%s"%(p,l) for l in ["GPE", "NORP", "ORG", "PERSON"] for p in "BILU"
     ]
     lf_analysis = LFAnalysis(
-        [analysis_doc],
+        analysis_corpus,
         labels,
         strict_match=True
     )
@@ -1085,7 +1100,7 @@ def test_lf_conflicts_with_strict_match_with_prefixes_without_agg(
 
 
 def test_lf_conflicts_without_strict_match_with_prefixes_without_agg(
-    analysis_doc
+    analysis_corpus
 ):
     """ Test expected conflicts across below spans:
 
@@ -1128,7 +1143,7 @@ def test_lf_conflicts_without_strict_match_with_prefixes_without_agg(
         "%s-%s"%(p,l) for l in ["GPE", "NORP", "ORG", "PERSON"] for p in "BILU"
     ]
     lf_analysis = LFAnalysis(
-        [analysis_doc],
+        analysis_corpus,
         labels,
         strict_match=False
     )
@@ -1146,7 +1161,7 @@ def test_lf_conflicts_without_strict_match_with_prefixes_without_agg(
     
 
 def test_lf_conflicts_without_strict_match_without_prefixes_without_agg(
-    analysis_doc
+    analysis_corpus
 ):
     """ Test expected conflicts across below spans:
 
@@ -1186,7 +1201,7 @@ def test_lf_conflicts_without_strict_match_without_prefixes_without_agg(
     """
     labels = ["O", "GPE", "NORP", "ORG", "PERSON"]
     lf_analysis = LFAnalysis(
-        [analysis_doc],
+        analysis_corpus,
         labels,
         strict_match=False
     )
@@ -1207,16 +1222,16 @@ def test_lf_conflicts_without_strict_match_without_prefixes_without_agg(
 # LF CONFLICT TESTS w/ Agg
 # ------------------------
 def test_lf_conflicts_with_strict_match_with_prefixes_with_agg(
-    analysis_doc
+    analysis_corpus
 ):
     """ Test expected conflicts across below spans:
 
     Spans:
-        "name_1": Pierre (PERSON), Lison (PERSON), Pierre(PERSON)
-        "name_2": Pierre (PERSON), Lison (PERSON)
-        "org_1": Norwegian (ORG), Computing (ORG), Center(ORG)
-        "org_2": Norwegian (ORG), Computing (ORG), Oslo (ORG)
-        "place_1": Norwegian (NORP), Oslo (GPE)
+        "name_1": Pierre (B-PERSON), Lison (L-PERSON), Pierre(U-PERSON)
+        "name_2": Pierre (B-PERSON), Lison (L-PERSON)
+        "org_1": Norwegian (B-ORG), Computing (I-ORG), Center(L-ORG)
+        "org_2": Norwegian (B-ORG), Computing (L-ORG), Oslo (U-ORG)
+        "place_1": Norwegian (U-NORP), Oslo (U-GPE)
 
         name_1: 0/3
         name_2: 0/2
@@ -1229,7 +1244,7 @@ def test_lf_conflicts_with_strict_match_with_prefixes_with_agg(
         "%s-%s"%(p,l) for l in ["GPE", "NORP", "ORG", "PERSON"] for p in "BILU"
     ]
     lf_analysis = LFAnalysis(
-        [analysis_doc],
+        analysis_corpus,
         labels,
         strict_match=True
     )
@@ -1242,16 +1257,16 @@ def test_lf_conflicts_with_strict_match_with_prefixes_with_agg(
 
 
 def test_lf_conflicts_without_strict_match_with_prefixes_with_agg(
-    analysis_doc
+    analysis_corpus
 ):
     """ Test expected conflicts across below spans:
 
     Spans:
-        "name_1": Pierre (PERSON), Lison (PERSON), Pierre(PERSON)
-        "name_2": Pierre (PERSON), Lison (PERSON)
-        "org_1": Norwegian (ORG), Computing (ORG), Center(ORG)
-        "org_2": Norwegian (ORG), Computing (ORG), Oslo (ORG)
-        "place_1": Norwegian (NORP), Oslo (GPE)
+        "name_1": Pierre (B-PERSON), Lison (L-PERSON), Pierre(U-PERSON)
+        "name_2": Pierre (B-PERSON), Lison (L-PERSON)
+        "org_1": Norwegian (B-ORG), Computing (I-ORG), Center(L-ORG)
+        "org_2": Norwegian (B-ORG), Computing (L-ORG), Oslo (U-ORG)
+        "place_1": Norwegian (U-NORP), Oslo (U-GPE)
 
     Conflicts:
         name_1: 0/3
@@ -1265,7 +1280,7 @@ def test_lf_conflicts_without_strict_match_with_prefixes_with_agg(
         "%s-%s"%(p,l) for l in ["GPE", "NORP", "ORG", "PERSON"] for p in "BILU"
     ]
     lf_analysis = LFAnalysis(
-        [analysis_doc],
+        analysis_corpus,
         labels,
         strict_match=False
     )
@@ -1278,7 +1293,7 @@ def test_lf_conflicts_without_strict_match_with_prefixes_with_agg(
 
 
 def test_lf_conflicts_without_strict_match_without_prefixes_with_agg(
-    analysis_doc
+    analysis_corpus
 ):
     """ Test expected conflicts across below spans:
 
@@ -1298,7 +1313,7 @@ def test_lf_conflicts_without_strict_match_without_prefixes_with_agg(
     """
     labels = ["O", "GPE", "NORP", "ORG", "PERSON"]
     lf_analysis = LFAnalysis(
-        [analysis_doc],
+        analysis_corpus,
         labels,
         strict_match=False
     )
@@ -1308,3 +1323,213 @@ def test_lf_conflicts_without_strict_match_without_prefixes_with_agg(
     assert (result['org_1'].item() == 1/3)
     assert (result['org_2'].item() == 2/3)
     assert (result['place_1'].item() == 1.0)
+
+# ------------------------
+# LF ACCURACY TESTS w/ Agg
+# ------------------------
+# def test_lf_accs_with_strict_match_with_prefixes_with_agg(
+#     analysis_corpus
+# ):
+#     """ Test expected conflicts across below spans:
+
+#     Spans:
+#         "name_1": Pierre (PERSON), Lison (PERSON), Pierre(PERSON)
+#         "name_2": Pierre (PERSON), Lison (PERSON)
+#         "org_1": Norwegian (ORG), Computing (ORG), Center(ORG)
+#         "org_2": Norwegian (ORG), Computing (ORG), Oslo (ORG)
+#         "place_1": Norwegian (NORP), Oslo (GPE)
+
+#         name_1: 0/3
+#         name_2: 0/2
+#         org_1: 2/3
+#         org_2: 3/3
+#         place_1: 3/3
+#     """
+#     labels = ["O"]
+#     labels += [
+#         "%s-%s"%(p,l) for l in ["GPE", "NORP", "ORG", "PERSON"] for p in "BILU"
+#     ]
+#     lf_analysis = LFAnalysis(
+#         analysis_corpus,
+#         labels,
+#         strict_match=True
+#     )
+#     result = lf_analysis.lf_conflicts(agg=True)
+#     assert (result['name_1'].item() == 0.0)
+#     assert (result['name_2'].item() == 0.0)
+#     assert (result['org_1'].item() == 2/3)
+#     assert (result['org_2'].item() == 1.0)
+#     assert (result['place_1'].item() == 1.0)
+
+
+def test_lf_acc_without_strict_match_with_prefixes_with_agg(
+    analysis_corpus,
+    analysis_corpus_y
+):
+    """ Test expected conflicts across below spans:
+
+    Spans:
+        "name_1": Pierre (B-PERSON), Lison (L-PERSON), Pierre(U-PERSON)
+        "name_2": Pierre (B-PERSON), Lison (L-PERSON)
+        "org_1": Norwegian (B-ORG), Computing (I-ORG), Center(L-ORG)
+        "org_2": Norwegian (B-ORG), Computing (L-ORG), Oslo (U-ORG)
+        "place_1": Norwegian (U-NORP), Oslo (U-GPE)
+
+    Accuracy:
+        name_1: 19/19 (gets all PERSON tags)
+        name_2: 18/19 (misclassifies second Pierre)
+        org_1: 19/19 (gets all ORG tags)
+        org_2: 17/19 (misclassifies Center and Oslo)
+        place_1: 18/19
+    """
+    labels = ["O"]
+    labels += [
+        "%s-%s"%(p,l) for l in ["GPE", "NORP", "ORG", "PERSON"] for p in "BILU"
+    ]
+    lf_analysis = LFAnalysis(
+        analysis_corpus,
+        labels,
+        strict_match=False
+    )
+    result = lf_analysis.lf_empirical_accuracies(
+        *analysis_corpus_y,
+        agg=True
+    )
+    assert(result['acc']['name_1'] == 1.0)
+    assert(abs(result['acc']['name_2'] - 18/19) <= 1e-5)
+    assert(result['acc']['org_1'] == 1.0)
+    assert(abs(result['acc']['org_2'] - 17/19) <= 1e-5)
+    assert(abs(result['acc']['place_1'] - 18/19) <= 1e-5)
+
+
+def test_lf_acc_without_strict_match_without_prefixes_with_agg(
+    analysis_corpus,
+    analysis_corpus_y
+):
+    """ Test expected conflicts across below spans:
+
+    Spans:
+        "name_1": Pierre (PERSON), Lison (PERSON), Pierre(PERSON)
+        "name_2": Pierre (PERSON), Lison (PERSON)
+        "org_1": Norwegian (ORG), Computing (ORG), Center(ORG)
+        "org_2": Norwegian (ORG), Computing (ORG), Oslo (ORG)
+        "place_1": Norwegian (NORP), Oslo (GPE)
+
+    Accuracy:
+        name_1: 19/19 (gets all PERSON tags)
+        name_2: 18/19 (misclassifies second Pierre)
+        org_1: 19/19 (gets all ORG tags)
+        org_2: 17/19 (misclassifies Center and Oslo)
+        place_1: 18/19
+    """
+    labels = ["O", "GPE", "NORP", "ORG", "PERSON"]
+    lf_analysis = LFAnalysis(
+        analysis_corpus,
+        labels,
+        strict_match=False
+    )
+    result = lf_analysis.lf_empirical_accuracies(
+        *analysis_corpus_y,
+        agg=True
+    )
+    assert(result['acc']['name_1'] == 1.0)
+    assert(abs(result['acc']['name_2'] - 18/19) <= 1e-5)
+    assert(result['acc']['org_1'] == 1.0)
+    assert(abs(result['acc']['org_2'] - 17/19) <= 1e-5)
+    assert(abs(result['acc']['place_1'] - 18/19) <= 1e-5)
+
+
+# ----------------------------
+# LF ACCURACY TESTS w/out Agg
+# ----------------------------
+
+def test_lf_acc_without_strict_match_with_prefixes_without_agg(
+    analysis_corpus,
+    analysis_corpus_y
+):
+    """ Test expected conflicts across below spans:
+
+    Spans:
+        "name_1": Pierre (B-PERSON), Lison (L-PERSON), Pierre(U-PERSON)
+        "name_2": Pierre (B-PERSON), Lison (L-PERSON)
+        "org_1": Norwegian (B-ORG), Computing (I-ORG), Center(L-ORG)
+        "org_2": Norwegian (B-ORG), Computing (L-ORG), Oslo (U-ORG)
+        "place_1": Norwegian (U-NORP), Oslo (U-GPE)
+
+    Accuracy:
+        name_1:
+            PERSON: 19/19
+        name_2:
+            PERSON: 18/19
+        org_1:
+            ORG: 19/19
+        org_2:
+            ORG: 17/19
+        place_1:
+            NORP: 18/19
+            GPE: 19/19
+    """
+    labels = ["O"]
+    labels += [
+        "%s-%s"%(p,l) for l in ["GPE", "NORP", "ORG", "PERSON"] for p in "BILU"
+    ]
+    lf_analysis = LFAnalysis(
+        analysis_corpus,
+        labels,
+        strict_match=False
+    )
+    result = lf_analysis.lf_empirical_accuracies(
+        *analysis_corpus_y,
+        agg=False
+    )
+    assert(result['GPE']['place_1'] == 1.0)
+    assert(abs(result['NORP']['place_1'] - 18/19) <= 1e-5)
+    assert(abs(result['ORG']['org_2'] - 17/19) <= 1e-5)
+    assert(result['ORG']['org_1'] == 1.0)
+    assert(result['PERSON']['name_1'] == 1.0)
+    assert(abs(result['PERSON']['name_2'] - 18/19) <= 1e-5)
+
+
+
+def test_lf_acc_without_strict_match_without_prefixes_without_agg(
+    analysis_corpus,
+    analysis_corpus_y
+):
+    """ Test expected conflicts across below spans:
+
+    Spans:
+        "name_1": Pierre (PERSON), Lison (PERSON), Pierre(PERSON)
+        "name_2": Pierre (PERSON), Lison (PERSON)
+        "org_1": Norwegian (ORG), Computing (ORG), Center(ORG)
+        "org_2": Norwegian (ORG), Computing (ORG), Oslo (ORG)
+        "place_1": Norwegian (NORP), Oslo (GPE)
+
+    Accuracy:
+        name_1:
+            PERSON: 19/19
+        name_2:
+            PERSON: 18/19
+        org_1:
+            ORG: 19/19
+        org_2:
+            ORG: 17/19
+        place_1:
+            NORP: 18/19
+            GPE: 19/19
+    """
+    labels = ["O", "GPE", "NORP", "ORG", "PERSON"]
+    lf_analysis = LFAnalysis(
+        analysis_corpus,
+        labels,
+        strict_match=False
+    )
+    result = lf_analysis.lf_empirical_accuracies(
+        *analysis_corpus_y,
+        agg=False
+    )
+    assert(result['GPE']['place_1'] == 1.0)
+    assert(abs(result['NORP']['place_1'] - 18/19) <= 1e-5)
+    assert(abs(result['ORG']['org_2'] - 17/19) <= 1e-5)
+    assert(result['ORG']['org_1'] == 1.0)
+    assert(result['PERSON']['name_1'] == 1.0)
+    assert(abs(result['PERSON']['name_2'] - 18/19) <= 1e-5)
