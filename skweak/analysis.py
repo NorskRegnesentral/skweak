@@ -54,10 +54,7 @@ class LFAnalysis:
 
     def label_overlap(self, nan_to_num:float = 0.) -> pandas.DataFrame:
         """ For each label, compute the fraction of tokens with at least 2 
-        LFs providing a non-null annotation. Overlap computed for labels 
-        that have 1+ instances in the corpus.
-
-        Nan values are replaced with nan_to_num value.
+        LFs providing a non-null annotation. 
         """
         result = {}
         overlaps = self._overlapped_data_points()
@@ -89,10 +86,6 @@ class LFAnalysis:
         label. For example, a conflict would not be registered if: 
             - LF1 returns "ORG" for the token "Apple"
             - LF2 returns "O" (null-label) for the token "Apple"
-
-        Conflicts are computed for labels that have 1+ instances in the corpus.
-
-        Nan values are replaced with nan_to_num value.
         """
         result = {}
         conflicts = self._conflicted_data_points()
@@ -280,7 +273,7 @@ class LFAnalysis:
         agg:bool = False,
         nan_to_num:float = 0.
     ) -> pandas.DataFrame:
-        """ Compute conflicts (i.e., instances where 2 LFs assign different
+        """ Compute LF conflicts (i.e., instances where 2 LFs assign different
         non-null labels to a token).
         
         If `agg` is True, conflicts are computed for each LF across all of the
@@ -388,10 +381,6 @@ class LFAnalysis:
 
         - If we encounter a label that has not been indexed by the LFAnalysis
         instance the token is assigned the null label (0).
-
-        - If there are labels that are indexed by LFAnalysis but are not 
-        included in the gold dataset, we normalize the LF labels, assigning
-        them the null label (0).
 
         - If `strict_match` is true for the LFAnalysis instance the target
         labels will be comprised of BILU labels for each normalized target
