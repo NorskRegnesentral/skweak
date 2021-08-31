@@ -1,5 +1,6 @@
 import re
 
+import numpy as np
 from spacy.tokens import Span #type: ignore
 import pytest
 
@@ -792,7 +793,9 @@ def test_lf_coverage_without_strict_match_without_prefixes_with_agg(
 # ----------------------------
 # LF OVERLAP TESTS w/out agg
 # -----------------------------
-def test_lf_overlaps_with_strict_match_with_prefixes_without_agg(analysis_corpus):
+def test_lf_overlaps_with_strict_match_with_prefixes_without_agg(
+    analysis_corpus
+):
     """ Test expected overlaps across below spans:
   
     Spans:
@@ -828,7 +831,7 @@ def test_lf_overlaps_with_strict_match_with_prefixes_without_agg(analysis_corpus
             L-PERSON: 0 Overlaps / 0
             U-PERSON: 0 Overlaps / 0
             B-ORG: 1 Overlap / 1
-            I-ORG: 0 Overlap / 1 
+            I-ORG: 1 Overlap / 1 
             L-ORG: 0 Overlap / 1
             U-ORG: 0 Overlaps / 0
             U-NORP: 0 Overlaps / 0
@@ -847,10 +850,10 @@ def test_lf_overlaps_with_strict_match_with_prefixes_without_agg(analysis_corpus
             B-PERSON: 0 Overlaps / 0
             L-PERSON: 0 Overlaps / 0
             U-PERSON: 0 Overlaps / 0
-            B-ORG: 1 Overlap / 1
+            B-ORG: 0 Overlap / 0
             I-ORG: 0 Overlaps / 0
-            L-ORG: 0 Conflict / 0
-            U-ORG: 0 Conflict / 0
+            L-ORG: 0 Overlap / 0
+            U-ORG: 0 Overlap / 0
             U-NORP: 1 Overlap / 1
             U-GPE: 1 Overlap / 1
   
@@ -864,21 +867,35 @@ def test_lf_overlaps_with_strict_match_with_prefixes_without_agg(analysis_corpus
         labels,
         strict_match=True
     )
-    result = lf_analysis.lf_overlaps(agg=False)
+    result = lf_analysis.lf_overlaps(agg=False, nan_to_num=-1.0)
+    
+    # Create expected arrays
+    default = np.ones(16) * -1
+    name_1_exp = default.copy()
+    name_2_exp = default.copy()
+    org_1_exp = default.copy()
+    org_2_exp = default.copy()
+    place_1_exp = default.copy()
 
     # Order:
-    # U-GPE, U-NORP, B-ORG, I-ORG, L-ORG, U-ORG
-    # B-PERSON, L-PERSON, U-PERSON
-    assert (result['name_1'].to_list() == 
-        [0., 0., 0., 0., 0., 0., 1., 1., 0.,])
-    assert (result['name_2'].to_list() == 
-        [0., 0., 0., 0., 0., 0., 1., 1., 0.,])
-    assert (result['org_1'].to_list() == 
-        [0., 0., 1., 1., 0., 0., 0., 0., 0.,])
-    assert (result['org_2'].to_list() == 
-        [0., 0., 1., 0., 1., 1., 0., 0., 0.,])
-    assert (result['place_1'].to_list() == 
-        [1., 1., 0., 0., 0., 0., 0., 0., 0.,])
+    # B-GPE, I-GPE, L-GPE, U-GPE,
+    # B-NORP, I-NORP, L-NORP, U-NORP,
+    # B-ORG, I-ORG, L-ORG, U-ORG,
+    # B-PERSON, I-PERSON, L-PERSON, U-PERSON
+
+    name_1_exp[12:16] = [1., -1., 1., 0.,]
+    name_2_exp[12:15] = [1., -1., 1.,]
+    org_1_exp[8:12] = [1., 1., 0., -1]
+    org_2_exp[8:12] = [1., -1., 1., 1.,]
+    place_1_exp[3] = 1.
+    place_1_exp[7] = 1.
+
+    # Check
+    np.testing.assert_allclose(result['name_1'].to_numpy(), name_1_exp)
+    np.testing.assert_allclose(result['name_2'].to_numpy(), name_2_exp)
+    np.testing.assert_allclose(result['org_1'].to_numpy(), org_1_exp)
+    np.testing.assert_allclose(result['org_2'].to_numpy(), org_2_exp)
+    np.testing.assert_allclose(result['place_1'].to_numpy(), place_1_exp)
 
 
 def test_lf_overlaps_without_strict_match_with_prefixes_without_agg(
@@ -1174,7 +1191,7 @@ def test_lf_conflicts_with_strict_match_with_prefixes_without_agg(
             B-PERSON: 0 Conflicts / 0
             L-PERSON: 0 Conflicts / 0
             U-PERSON: 0 Conflicts / 0
-            B-ORG: 1 Conflict / 1
+            B-ORG: 0 Conflict / 0
             I-ORG: 0 Conflicts / 0
             L-ORG: 0 Conflict / 0
             U-ORG: 0 Conflict / 0
@@ -1190,17 +1207,35 @@ def test_lf_conflicts_with_strict_match_with_prefixes_without_agg(
         labels,
         strict_match=True
     )
-    result = lf_analysis.lf_conflicts(agg=False)
-    assert (result['name_1'].to_list() == 
-        [0., 0., 0., 0., 0., 0., 0., 0., 0.,])
-    assert (result['name_2'].to_list() == 
-        [0., 0., 0., 0., 0., 0., 0., 0., 0.,])
-    assert (result['org_1'].to_list() == 
-        [0., 0., 1., 1., 0., 0., 0., 0., 0.,])
-    assert (result['org_2'].to_list() == 
-        [0., 0., 1., 0., 1., 1., 0., 0., 0.,])
-    assert (result['place_1'].to_list() == 
-        [1., 1., 0., 0., 0., 0., 0., 0., 0.,])
+    result = lf_analysis.lf_conflicts(agg=False, nan_to_num=-1.)
+
+   # Create expected arrays
+    default = np.ones(16) * -1
+    name_1_exp = default.copy()
+    name_2_exp = default.copy()
+    org_1_exp = default.copy()
+    org_2_exp = default.copy()
+    place_1_exp = default.copy()
+
+    # Order:
+    # B-GPE, I-GPE, L-GPE, U-GPE,
+    # B-NORP, I-NORP, L-NORP, U-NORP,
+    # B-ORG, I-ORG, L-ORG, U-ORG,
+    # B-PERSON, I-PERSON, L-PERSON, U-PERSON
+
+    name_1_exp[12:16] = [0., -1., 0., 0.,]
+    name_2_exp[12:15] = [0., -1., 0.,]
+    org_1_exp[8:12] = [1., 1., 0., -1]
+    org_2_exp[8:12] = [1., -1., 1., 1.,]
+    place_1_exp[3] = 1.
+    place_1_exp[7] = 1.
+
+    # Check
+    np.testing.assert_allclose(result['name_1'].to_numpy(), name_1_exp)
+    np.testing.assert_allclose(result['name_2'].to_numpy(), name_2_exp)
+    np.testing.assert_allclose(result['org_1'].to_numpy(), org_1_exp)
+    np.testing.assert_allclose(result['org_2'].to_numpy(), org_2_exp)
+    np.testing.assert_allclose(result['place_1'].to_numpy(), place_1_exp)
 
 
 def test_lf_conflicts_without_strict_match_with_prefixes_without_agg(
@@ -1435,7 +1470,7 @@ def test_lf_accs_with_strict_match_with_prefixes_with_agg(
     analysis_corpus,
     analysis_corpus_y,
 ):
-    """ Test expected conflicts across below spans:
+    """ Test expected accuracies across below spans:
 
     Spans:
         "name_1": Pierre (B-PERSON), Lison (L-PERSON), Pierre(U-PERSON)
@@ -1475,7 +1510,7 @@ def test_lf_acc_without_strict_match_with_prefixes_with_agg(
     analysis_corpus,
     analysis_corpus_y
 ):
-    """ Test expected conflicts across below spans:
+    """ Test expected accuracies across below spans:
 
     Spans:
         "name_1": Pierre (PERSON), Lison (PERSON), Pierre(PERSON)
@@ -1515,7 +1550,7 @@ def test_lf_acc_without_strict_match_without_prefixes_with_agg(
     analysis_corpus,
     analysis_corpus_y
 ):
-    """ Test expected conflicts across below spans:
+    """ Test expected accuracies across below spans:
 
     Spans:
         "name_1": Pierre (PERSON), Lison (PERSON), Pierre(PERSON)
@@ -1555,7 +1590,7 @@ def test_lf_acc_with_strict_match_with_prefixes_without_agg(
     analysis_corpus,
     analysis_corpus_y
 ):
-    """ Test expected conflicts across below spans:
+    """ Test expected accuracies across below spans:
 
     Spans:
         "name_1": Pierre (B-PERSON), Lison (L-PERSON), Pierre(U-PERSON)
@@ -1643,7 +1678,7 @@ def test_lf_acc_without_strict_match_with_prefixes_without_agg(
     analysis_corpus,
     analysis_corpus_y
 ):
-    """ Test expected conflicts across below spans:
+    """ Test expected accuracies across below spans:
 
     Spans:
         "name_1": Pierre (PERSON), Lison (PERSON), Pierre(PERSON)
@@ -1691,7 +1726,7 @@ def test_lf_acc_without_strict_match_without_prefixes_without_agg(
     analysis_corpus,
     analysis_corpus_y
 ):
-    """ Test expected conflicts across below spans:
+    """ Test expected accuracies across below spans:
 
     Spans:
         "name_1": Pierre (PERSON), Lison (PERSON), Pierre(PERSON)
@@ -1729,3 +1764,235 @@ def test_lf_acc_without_strict_match_without_prefixes_without_agg(
     assert(result['ORG']['org_1'] == 1.0)
     assert(result['PERSON']['name_1'] == 1.0)
     assert(abs(result['PERSON']['name_2'] - 18/19) <= 1e-5)
+
+
+# ----------------------------
+# LF P, R, F1 TESTS w/out Agg
+# ----------------------------
+def test_lf_scores_with_strict_match_with_prefixes_without_agg(
+    analysis_corpus,
+    analysis_corpus_y
+):
+    """ Test expected conflicts across below spans:
+
+    Spans:
+        "name_1": Pierre (B-PERSON), Lison (L-PERSON), Pierre(U-PERSON)
+        "name_2": Pierre (B-PERSON), Lison (L-PERSON)
+        "org_1": Norwegian (B-ORG), Computing (I-ORG), Center(L-ORG)
+        "org_2": Norwegian (B-ORG), Computing (L-ORG), Oslo (U-ORG)
+        "place_1": Norwegian (U-NORP), Oslo (U-GPE)
+
+    Accuracy:
+        name_1:
+            B-PERSON (P, R): 1/1, 1/1
+            I-PERSON (P, R): 0/0, 0/0
+            L-PERSON (P, R): 1/1, 1/1
+            U-PERSON (P, R): 1/1, 1/1
+        name_2:
+            B-PERSON (P, R): 1/1, 1/1
+            I-PERSON (P, R): 0/0 (nan), 0/0 (nan)
+            L-PERSON (P, R): 1/1, 1/1
+            U-PERSON (P, R): 0/0, 0/1
+        org_1:
+            B-ORG (P, R): 1/1, 1/1
+            I-ORG (P, R): 1/1, 1/1
+            L-ORG (P, R): 1/1, 1/1
+            U-ORG (P, R): 0/0 (nan), 0/0 (nan)
+        org_2:
+            B-ORG (P, R): 1/1, 1/1
+            I-ORG (P, R): 0/0, 0/1
+            L-ORG (P, R): 0/1, 0/1
+            U-ORG (P, R): 0/1, 0/0 (nan)
+        place_1:
+            B-NORP (P, R): Skipped -- Not in Gold Dataset
+            I-NORP (P, R): Skipped -- Not in Gold Dataset
+            L-NORP (P, R): Skipped -- Not in Gold Dataset
+            U-NORP (P, R): Skipped -- Not in Gold Dataset
+            B-GPE (P, R): 0/0, 0/0
+            I-GPE (P, R): 0/0, 0/0
+            L-GPE (P, R): 0/0, 0/0
+            U-GPE (P, R): 1/1, 1/1
+    """
+    labels = ["O"]
+    labels += [
+        "%s-%s"%(p,l) for l in ["GPE", "NORP", "ORG", "PERSON"] for p in "BILU"
+    ]
+    lf_analysis = LFAnalysis(
+        analysis_corpus,
+        labels,
+        strict_match=True
+    )
+    result = lf_analysis.lf_empirical_scores(
+        *analysis_corpus_y,
+        agg=False,
+        nan_to_num=-1
+    )
+
+    assert(result['name_1']['B-PERSON']['precision'] == 1.)
+    assert(result['name_1']['B-PERSON']['recall'] == 1.)
+    assert(result['name_1']['I-PERSON']['precision'] == -1.)
+    assert(result['name_1']['I-PERSON']['recall'] == -1.)
+    assert(result['name_1']['L-PERSON']['precision'] == 1.)
+    assert(result['name_1']['L-PERSON']['recall'] == 1.)
+    assert(result['name_1']['U-PERSON']['precision'] == 1.)
+    assert(result['name_1']['U-PERSON']['recall'] == 1.)
+
+    assert(result['name_2']['B-PERSON']['precision'] == 1.)
+    assert(result['name_2']['B-PERSON']['recall'] == 1.)
+    assert(result['name_2']['I-PERSON']['precision'] == -1.)
+    assert(result['name_2']['I-PERSON']['recall'] == -1.)
+    assert(result['name_2']['L-PERSON']['precision'] == 1.)
+    assert(result['name_2']['L-PERSON']['recall'] == 1.)
+    assert(result['name_2']['U-PERSON']['precision'] == -1.)
+    assert(result['name_2']['U-PERSON']['recall'] == 0.)
+
+    assert(result['org_1']['B-ORG']['precision'] == 1.)
+    assert(result['org_1']['B-ORG']['recall'] == 1.)
+    assert(result['org_1']['I-ORG']['precision'] == 1.)
+    assert(result['org_1']['I-ORG']['recall'] == 1.)
+    assert(result['org_1']['L-ORG']['precision'] == 1.)
+    assert(result['org_1']['L-ORG']['recall'] == 1.)
+    assert(result['org_1']['U-ORG']['precision'] == -1.)
+    assert(result['org_1']['U-ORG']['recall'] == -1.)
+
+    assert(result['org_2']['B-ORG']['precision'] == 1.)
+    assert(result['org_2']['B-ORG']['recall'] == 1.)
+    assert(result['org_2']['I-ORG']['precision'] == -1.)
+    assert(result['org_2']['I-ORG']['recall'] == 0.)
+    assert(result['org_2']['L-ORG']['precision'] == 0.)
+    assert(result['org_2']['L-ORG']['recall'] == 0.)
+    assert(result['org_2']['U-ORG']['precision'] == 0.)
+    assert(result['org_2']['U-ORG']['recall'] == -1.)
+
+    assert(result['place_1']['B-GPE']['precision'] == -1.)
+    assert(result['place_1']['B-GPE']['recall'] == -1.)
+    assert(result['place_1']['I-GPE']['precision'] == -1.)
+    assert(result['place_1']['I-GPE']['recall'] == -1.)
+    assert(result['place_1']['L-GPE']['precision'] == -1.)
+    assert(result['place_1']['L-GPE']['recall'] == -1.)
+    assert(result['place_1']['U-GPE']['precision'] == 1.)
+    assert(result['place_1']['U-GPE']['recall'] == 1.)
+
+    assert('B-NORP' not in result['place_1'].keys())
+    assert('I-NORP' not in result['place_1'].keys())
+    assert('L-NORP' not in result['place_1'].keys())
+    assert('U-NORP' not in result['place_1'].keys())
+
+
+def test_lf_scores_without_strict_match_with_prefixes_without_agg(
+    analysis_corpus,
+    analysis_corpus_y
+):
+    """ Test expected precision and recall scores across below spans:
+
+    Spans:
+        "name_1": Pierre (PERSON), Lison (PERSON), Pierre(PERSON)
+        "name_2": Pierre (PERSON), Lison (PERSON)
+        "org_1": Norwegian (ORG), Computing (ORG), Center(ORG)
+        "org_2": Norwegian (ORG), Computing (ORG), Oslo (ORG)
+        "place_1": Norwegian (NORP), Oslo (GPE)
+
+    Precision, Recall:
+        name_1:
+            PERSON:
+                P: 3/3
+                R: 3/3
+        name_2:
+            PERSON:
+                P: 2/2
+                R: 2/3
+        org_1:
+            ORG:
+                P: 3/3 
+                R: 3/3
+        org_2:
+            ORG:
+                P: 2/3
+                R: 2/3
+        place_1:
+            NORP: 0 (No values in test dataset)
+            GPE: 
+                P: 1/1
+                R: 1/1
+    """
+    labels = ["O"]
+    labels += [
+        "%s-%s"%(p,l) for l in ["GPE", "NORP", "ORG", "PERSON"] for p in "BILU"
+    ]
+    lf_analysis = LFAnalysis(
+        analysis_corpus,
+        labels,
+        strict_match=False
+    )
+    result = lf_analysis.lf_empirical_scores(
+        *analysis_corpus_y,
+        agg=False
+    )
+    assert(result['name_1']['PERSON']['precision'] == 1.)
+    assert(result['name_1']['PERSON']['recall'] == 1.)
+    assert(result['name_2']['PERSON']['precision'] == 1.)
+    assert(result['name_2']['PERSON']['recall'] == 2/3)
+    assert(result['org_1']['ORG']['precision'] == 1.)
+    assert(result['org_1']['ORG']['recall'] == 1.)
+    assert(result['org_2']['ORG']['precision'] == 2/3)
+    assert(result['org_2']['ORG']['recall'] == 2/3)
+    assert(result['place_1']['GPE']['precision'] == 1.)
+    assert(result['place_1']['GPE']['recall'] == 1.)
+
+
+def test_lf_scores_without_strict_match_without_prefixes_without_agg(
+    analysis_corpus,
+    analysis_corpus_y
+):
+    """ Test expected precision and recall across below spans:
+
+    Spans:
+        "name_1": Pierre (PERSON), Lison (PERSON), Pierre(PERSON)
+        "name_2": Pierre (PERSON), Lison (PERSON)
+        "org_1": Norwegian (ORG), Computing (ORG), Center(ORG)
+        "org_2": Norwegian (ORG), Computing (ORG), Oslo (ORG)
+        "place_1": Norwegian (NORP), Oslo (GPE)
+
+    Precision, Recall:
+        name_1:
+            PERSON:
+                P: 3/3
+                R: 3/3
+        name_2:
+            PERSON:
+                P: 2/2
+                R: 2/3
+        org_1:
+            ORG:
+                P: 3/3 
+                R: 3/3
+        org_2:
+            ORG:
+                P: 2/3
+                R: 2/3
+        place_1:
+            NORP: 0 (No values in test dataset)
+            GPE: 
+                P: 1/1
+                R: 1/1
+    """
+    labels = ["O", "GPE", "NORP", "ORG", "PERSON"]
+    lf_analysis = LFAnalysis(
+        analysis_corpus,
+        labels,
+        strict_match=False
+    )
+    result = lf_analysis.lf_empirical_scores(
+        *analysis_corpus_y,
+        agg=False
+    )
+    assert(result['name_1']['PERSON']['precision'] == 1.)
+    assert(result['name_1']['PERSON']['recall'] == 1.)
+    assert(result['name_2']['PERSON']['precision'] == 1.)
+    assert(result['name_2']['PERSON']['recall'] == 2/3)
+    assert(result['org_1']['ORG']['precision'] == 1.)
+    assert(result['org_1']['ORG']['recall'] == 1.)
+    assert(result['org_2']['ORG']['precision'] == 2/3)
+    assert(result['org_2']['ORG']['recall'] == 2/3)
+    assert(result['place_1']['GPE']['precision'] == 1.)
+    assert(result['place_1']['GPE']['recall'] == 1.)
