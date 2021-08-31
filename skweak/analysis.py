@@ -584,41 +584,68 @@ class LFAnalysis:
         )
 
         if agg:
-            raise NotImplementedError()
-            # result = {}
-            # for lf, idxs in self.lf_target_labels().items():
-            #     lf_idx = self.sources2idx[lf]
+            counts = defaultdict(lambda: defaultdict(int))
+            result = {}
+            for lf, idxs in self.lf_target_labels().items():
+                lf_idx = self.sources2idx[lf]
 
-            #     # Since target labels don't include 0 (null token)
-            #     # we manually introduce the null token as a target label
-            #     idxs.append(0)
+                for label_idx in idxs:
+                    if self.labels[label_idx] in missing_labels:
+                        continue
 
-            #     # Identify labels that are outside of LF's domain
-            #     non_target_label_idxs = list(
-            #         set(self.label2idx.values()) - set(idxs)
-            #     )
+                    # Create indicator matrix for label in gt
+                    gt = (Y_L_sparse.copy() == label_idx) 
 
-            #     # Null out the values in the ground truth vector 
-            #     # that have labels outside the domain of the LF
-            #     gt = Y_L_sparse.copy()
-            #     for label_idx in non_target_label_idxs:
-            #         gt[self._get_indices_for_lf_with_label(
-            #             Y_L_sparse,
-            #             0, # 0th index = gold label column in gt matrix
-            #             label_idx
-            #             )] = 0
+                    # Find rows, cols of tokens predicted as label by LF
+                    (pred_rows_idxs, pred_cols_idxs) = \
+                        self._get_indices_for_lf_with_label(
+                            self._L_sparse,
+                            lf_idx, label_idx
+                        )
 
-            #     # Determine agreement between ground truth and LF predictions
-            #     # Sparse matrices can compute disagreement quickly (not 
-            #     # agreement); so we shall compute disagreement and take
-            #     # converse to compute accuracy
-            #     disagreement = (gt != self._L_sparse.getcol(lf_idx))
+                    # Find the number of predictions that were correct
+                    # for the label
+                    correct_count = (
+                        gt[pred_rows_idxs, pred_cols_idxs] == 1
+                    ).sum()
 
-            #     # Compute accuracy
-            #     result[lf] = 1.0 - (disagreement.sum() / (self.L.shape[0]))
+                    counts[lf]['num_correct_predicted'] += correct_count
+                    counts[lf]['num_predicted'] += len(pred_cols_idxs)
+                    counts[lf]['num_ground_truth'] += gt.sum()
 
-            # return pandas.DataFrame.from_dict(
-            #     result, orient='index', columns=['acc'])
+                # Compute precision
+                if counts[lf]['num_predicted'] == 0:
+                    precision = nan_to_num
+                else:
+                    precision = (counts[lf]['num_correct_predicted'] / 
+                        counts[lf]['num_predicted'])
+
+                # Compute recall
+                if counts[lf]['num_ground_truth'] == 0:
+                    recall = nan_to_num
+                else:
+                    recall = (
+                        counts[lf]['num_correct_predicted'] /
+                        counts[lf]['num_ground_truth']
+                    )
+
+                # Compute F1
+                if (counts[lf]['num_ground_truth'] == 0 or 
+                    counts[lf]['num_correct_predicted'] == 0):
+                    f1 = nan_to_num
+                else:
+                    if precision + recall == 0.0:
+                        f1 = 0.0
+                    else:
+                        f1 = (2 * precision * recall) / (precision + recall)
+
+                result[lf] = {
+                    'precision': precision,
+                    'recall': recall,
+                    'f1': f1,
+                }
+            return result
+
         else:
             result = defaultdict(dict)
             for lf, idxs in self.lf_target_labels().items():
@@ -644,19 +671,21 @@ class LFAnalysis:
                         gt[pred_rows_idxs, pred_cols_idxs] == 1
                     ).sum()
 
-                    # Compute precision, recall, f1-score
-                    num_true = gt.sum()
-                    if num_true == 0:
-                        recall = nan_to_num
-                    else:
-                        recall = correct_count / num_true
-
+                    # Compute precision
                     if len(pred_cols_idxs) == 0:
                         precision = nan_to_num
                     else:
                         precision = correct_count / len(pred_cols_idxs)
                     
-                    if num_true == 0 or len(pred_cols_idxs) == 0:
+                    # Compute recall
+                    num_gt = gt.sum()
+                    if num_gt == 0:
+                        recall = nan_to_num
+                    else:
+                        recall = correct_count / num_gt
+
+                    # Compute f1
+                    if num_gt == 0 or len(pred_cols_idxs) == 0:
                         f1 = nan_to_num
                     else:
                         if precision + recall == 0.0:

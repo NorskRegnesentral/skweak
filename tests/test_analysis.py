@@ -1767,6 +1767,146 @@ def test_lf_acc_without_strict_match_without_prefixes_without_agg(
 
 
 # ----------------------------
+# LF P, R, F1 TESTS w/ Agg
+# ----------------------------
+def test_lf_scores_with_strict_match_with_prefixes_with_agg(
+    analysis_corpus,
+    analysis_corpus_y
+):
+    """ Test expected conflicts across below spans:
+
+    Spans:
+        "name_1": Pierre (B-PERSON), Lison (L-PERSON), Pierre(U-PERSON)
+        "name_2": Pierre (B-PERSON), Lison (L-PERSON)
+        "org_1": Norwegian (B-ORG), Computing (I-ORG), Center(L-ORG)
+        "org_2": Norwegian (B-ORG), Computing (L-ORG), Oslo (U-ORG)
+        "place_1": Norwegian (U-NORP), Oslo (U-GPE)
+
+    Precision, Recall:
+        name_1: (P, R) - 3/3, 3/3
+        name_2: (P, R) - 2/2, 2/3
+        org_1: (P, R) - 3/3, 3/3
+        org_2: (P, R) - 1/3, 1/3
+        place_1: (P, R) - 1/1, 1/1
+    """
+    labels = ["O"]
+    labels += [
+        "%s-%s"%(p,l) for l in ["GPE", "NORP", "ORG", "PERSON"] for p in "BILU"
+    ]
+    lf_analysis = LFAnalysis(
+        analysis_corpus,
+        labels,
+        strict_match=True
+    )
+    result = lf_analysis.lf_empirical_scores(
+        *analysis_corpus_y,
+        agg=True,
+        nan_to_num=-1
+    )
+
+    assert(result['name_1']['precision'] == 1.)
+    assert(result['name_1']['recall'] == 1.)
+    assert(result['name_2']['precision'] == 1.)
+    assert(result['name_2']['recall'] == 2/3)
+    assert(result['org_1']['precision'] == 1.)
+    assert(result['org_1']['recall'] == 1.)
+    assert(result['org_2']['precision'] == 1/3)
+    assert(result['org_2']['recall'] == 1/3)
+    assert(result['place_1']['precision'] == 1.)
+    assert(result['place_1']['recall'] == 1.)
+    assert('NORP' not in result['place_1'].keys())
+
+
+def test_lf_scores_without_strict_match_with_prefixes_with_agg(
+    analysis_corpus,
+    analysis_corpus_y
+):
+    """ Test expected precision and recall scores across below spans:
+
+    Spans:
+        "name_1": Pierre (PERSON), Lison (PERSON), Pierre(PERSON)
+        "name_2": Pierre (PERSON), Lison (PERSON)
+        "org_1": Norwegian (ORG), Computing (ORG), Center(ORG)
+        "org_2": Norwegian (ORG), Computing (ORG), Oslo (ORG)
+        "place_1": Norwegian (NORP), Oslo (GPE)
+
+    Precision, Recall :
+        name_1: (P, R) - 3/3, 3/3
+        name_2: (P, R) - 2/2, 2/3
+        org_1: (P, R) - 3/3, 3/3
+        org_2: (P, R) - 2/3, 2/3
+        place_1: (P, R) - 1/1, 1/1
+    """
+    labels = ["O"]
+    labels += [
+        "%s-%s"%(p,l) for l in ["GPE", "NORP", "ORG", "PERSON"] for p in "BILU"
+    ]
+    lf_analysis = LFAnalysis(
+        analysis_corpus,
+        labels,
+        strict_match=False
+    )
+    result = lf_analysis.lf_empirical_scores(
+        *analysis_corpus_y,
+        agg=True
+    )
+    assert(result['name_1']['precision'] == 1.)
+    assert(result['name_1']['recall'] == 1.)
+    assert(result['name_2']['precision'] == 1.)
+    assert(result['name_2']['recall'] == 2/3)
+    assert(result['org_1']['precision'] == 1.)
+    assert(result['org_1']['recall'] == 1.)
+    assert(result['org_2']['precision'] == 2/3)
+    assert(result['org_2']['recall'] == 2/3)
+    assert(result['place_1']['precision'] == 1.)
+    assert(result['place_1']['recall'] == 1.)
+    assert('NORP' not in result['place_1'].keys())
+
+
+def test_lf_scores_without_strict_match_without_prefixes_with_agg(
+    analysis_corpus,
+    analysis_corpus_y
+):
+    """ Test expected precision and recall across below spans:
+
+    Spans:
+        "name_1": Pierre (PERSON), Lison (PERSON), Pierre(PERSON)
+        "name_2": Pierre (PERSON), Lison (PERSON)
+        "org_1": Norwegian (ORG), Computing (ORG), Center(ORG)
+        "org_2": Norwegian (ORG), Computing (ORG), Oslo (ORG)
+        "place_1": Norwegian (NORP), Oslo (GPE)
+
+    Precision, Recall:
+        name_1: (P, R) - 3/3, 3/3
+        name_2: (P, R) - 2/2, 2/3
+        org_1: (P, R) - 3/3, 3/3
+        org_2: (P, R) - 2/3, 2/3
+        place_1: (P, R) - 1/1, 1/1
+    """
+    labels = ["O", "GPE", "NORP", "ORG", "PERSON"]
+    lf_analysis = LFAnalysis(
+        analysis_corpus,
+        labels,
+        strict_match=False
+    )
+    result = lf_analysis.lf_empirical_scores(
+        *analysis_corpus_y,
+        agg=True
+    )
+    assert(result['name_1']['precision'] == 1.)
+    assert(result['name_1']['recall'] == 1.)
+    assert(result['name_2']['precision'] == 1.)
+    assert(result['name_2']['recall'] == 2/3)
+    assert(result['org_1']['precision'] == 1.)
+    assert(result['org_1']['recall'] == 1.)
+    assert(result['org_2']['precision'] == 2/3)
+    assert(result['org_2']['recall'] == 2/3)
+    assert(result['place_1']['precision'] == 1.)
+    assert(result['place_1']['recall'] == 1.)
+    assert('NORP' not in result['place_1'].keys())
+
+
+# ----------------------------
 # LF P, R, F1 TESTS w/out Agg
 # ----------------------------
 def test_lf_scores_with_strict_match_with_prefixes_without_agg(
@@ -1782,7 +1922,7 @@ def test_lf_scores_with_strict_match_with_prefixes_without_agg(
         "org_2": Norwegian (B-ORG), Computing (L-ORG), Oslo (U-ORG)
         "place_1": Norwegian (U-NORP), Oslo (U-GPE)
 
-    Accuracy:
+    Precision, Recall:
         name_1:
             B-PERSON (P, R): 1/1, 1/1
             I-PERSON (P, R): 0/0, 0/0
