@@ -1,3 +1,4 @@
 spacy>=3.0
 hmmlearn>=0.2
 pandas>=0.23
+scipy>=1.7.1
