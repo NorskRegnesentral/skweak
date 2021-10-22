@@ -174,6 +174,6 @@ class VicinityAnnotator(SpanAnnotator):
             right_bound = min(span.sent.end, span.end+self.max_window//2+1)
 
             for tok in doc[left_bound:right_bound]:
-                for tok_form in [tok.text, tok.lower_, tok.lemma_]:
+                for tok_form in {tok.text, tok.lower_, tok.lemma_}:
                     if tok_form in self.cue_words:
                         yield span.start, span.end, self.cue_words[tok_form]
