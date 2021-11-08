@@ -107,7 +107,8 @@ def test_model(nlp):
     doc, *_ = annotator.pipe([doc])
     assert Span(doc, 3, 5, "PERSON") in doc.spans["core_web_md"]
     assert Span(doc, 9, 10, "GPE") in doc.spans["core_web_md"]
-    assert Span(doc, 14, 18, "FAC") in doc.spans["core_web_md"]
+    assert (Span(doc, 14, 18, "FAC") in doc.spans["core_web_md"]
+            or Span(doc, 14, 18, "ORG") in doc.spans["core_web_md"])
     assert Span(doc, 3, 5, "ENT") in doc.spans["proper"]
     assert Span(doc, 9, 10, "ENT") in doc.spans["proper"]
     assert Span(doc, 15, 18, "ENT") in doc.spans["proper"]
