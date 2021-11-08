@@ -84,6 +84,10 @@ class BaseAggregator(AbstractAnnotator):
             doc.spans[self.name].attrs["aggregated"] = True
             doc.spans[self.name].attrs["sources"] = list(df.columns)
 
+        else:
+            doc.spans[self.name] = []
+            doc.spans[self.name].attrs = {"probs":{}, "aggregated":True, "sources":[]}
+
         return doc
 
     def get_observation_df(self, doc: Doc):
