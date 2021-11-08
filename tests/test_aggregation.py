@@ -277,7 +277,7 @@ def test_emptydoc(nlp):
     hmm = aggregation.HMM("hmm", ["PERSON", "DATE", "MONEY"])
     hmm.fit_and_aggregate([doc, doc2])   
     assert len(doc.spans["hmm"])==3
-    assert "hmm" not in doc2.spans 
+    assert len(doc2.spans["hmm"])==0 
                
  
 class FullNameDetector():
