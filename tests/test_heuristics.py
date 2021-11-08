@@ -90,13 +90,15 @@ def test_model(nlp):
     doc = annotator(doc)
     assert Span(doc, 3, 5, "PERSON") in doc.spans["core_web_md"]
     assert Span(doc, 9, 10, "GPE") in doc.spans["core_web_md"]
-    assert Span(doc, 14, 18, "FAC") in doc.spans["core_web_md"]
+    assert (Span(doc, 14, 18, "FAC") in doc.spans["core_web_md"]
+            or Span(doc, 14, 18, "ORG") in doc.spans["core_web_md"])
    
     doc.ents = ()
     doc, *_ = annotator.pipe([doc])
     assert Span(doc, 3, 5, "PERSON") in doc.spans["core_web_md"]
     assert Span(doc, 9, 10, "GPE") in doc.spans["core_web_md"]
-    assert Span(doc, 14, 18, "FAC") in doc.spans["core_web_md"]
+    assert (Span(doc, 14, 18, "FAC") in doc.spans["core_web_md"]
+            or Span(doc, 14, 18, "ORG") in doc.spans["core_web_md"])
     
     doc.ents = ()
     annotator1 = skweak.heuristics.TokenConstraintAnnotator("proper", skweak.utils.is_likely_proper, "ENT")
