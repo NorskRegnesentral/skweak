@@ -54,7 +54,6 @@ class GazetteerAnnotator(base.SpanAnnotator):
             if lookahead_length:
 
                 window = tokens[i:i+lookahead_length]
-                
                 matches = []
                 # We loop on all tries (one per label)
                 for label, trie in self.tries.items():
@@ -62,7 +61,6 @@ class GazetteerAnnotator(base.SpanAnnotator):
                     # We search for the longest match
                     match = trie.find_longest_match(window, self.case_sensitive)
                     if match:
-                        
                         # We check whether the match is valid
                         if (not self.additional_checks or 
                             self._is_valid_match(doc[i:i+len(match)], match)):

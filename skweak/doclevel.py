@@ -32,14 +32,14 @@ class DocumentHistoryAnnotator(base.SpanAnnotator):
 
         # Extract the first mentions of each entity
         first_observed = self.get_first_mentions(doc)
-
+        
         # We construct tries based on the first mentions
         tries = {label: gazetteers.Trie() for label in self.labels}
         first_observed_bounds = set()
         for tokens, span in first_observed.items():
             tries[span.label_].add(tokens)
             first_observed_bounds.add((span.start, span.end))
-
+        
         gazetteer = GazetteerAnnotator(self.name, tries, case_sensitive=self.case_sensitive,
                                        additional_checks=not self.case_sensitive)
 

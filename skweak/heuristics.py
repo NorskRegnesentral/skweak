@@ -1,6 +1,6 @@
 
 
-from typing import Callable, Collection, Dict, Iterable, Optional, Sequence, Tuple
+from typing import Callable, Collection, Dict, Iterable, Optional, Sequence, Set, Tuple
 from spacy.tokens import Span, Token, Doc  # type: ignore
 from .base import SpanAnnotator
 
@@ -29,7 +29,8 @@ class TokenConstraintAnnotator(SpanAnnotator):
     satisfy this constraint will be marked by the provided label."""
 
     def __init__(self, name: str, constraint: Callable[[Token], bool],
-                 label: str, min_characters=3):
+                 label: str, min_characters=3, 
+                 gap_tokens:Optional[Set]=None):  
         """Given a token-level constraint, a label name, and a minimum
         number of characters, annotates with the label all (maximal) 
         contiguous spans whose tokens satisfy the constraint."""
@@ -38,7 +39,9 @@ class TokenConstraintAnnotator(SpanAnnotator):
         self.constraint = constraint
         self.label = label
         self.min_characters = min_characters
-        self.gap_tokens = {"-"}  # Hyphens should'nt stop a span
+        
+        # Hyphens should'nt stop a span
+        self.gap_tokens = gap_tokens if gap_tokens is not None else {"-"} 
 
     def add_gap_tokens(self, gap_tokens: Collection[str]):
         """Adds tokens (typically function words) that are allowed in the span 
@@ -61,12 +64,13 @@ class TokenConstraintAnnotator(SpanAnnotator):
                 j = i+1
                 while j < len(doc):
                     # We check the constraint
-                    if self.constraint(doc[j]):
+                    if self.constraint(doc[j]) and self._is_allowed_span(doc, i, j+1):
                         j += 1
 
                     # We also check whether the token is a gap word
                     elif (doc[j].text in self.gap_tokens and j < len(doc)-1
-                          and self.constraint(doc[j+1])):
+                          and self.constraint(doc[j+1])
+                          and self._is_allowed_span(doc, i, j+2)):
                         j += 2
                     else:
                         break

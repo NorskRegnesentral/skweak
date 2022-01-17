@@ -548,6 +548,9 @@ class HMM(hmmlearn.base._BaseHMM, BaseAggregator):
             # And aggregate the results
             agg_array = mv._aggregate(obs).values
 
+            if len(agg_array)==0:
+                continue
+            
             # Update the start probabilities
             self.start_counts += agg_array[0, :]
 
