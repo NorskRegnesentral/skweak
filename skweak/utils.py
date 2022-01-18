@@ -737,7 +737,7 @@ def display_entities(doc: Doc, layer=None, add_tooltip=False):
                               if re.match(layer.replace("*", ".*?")+"$", l)]
             spans = get_spans(doc, matched_layers)
         else:
-            spans = get_spans(doc, layer)
+            spans = get_spans(doc, [layer])
     else:
         raise RuntimeError("Layer type not accepted")
 
