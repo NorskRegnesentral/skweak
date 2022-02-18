@@ -170,16 +170,23 @@ class LabelMapper(SpanAnnotator):
         edits the span groups in place!"""
 
         for source in set(self.sources).intersection(doc.spans):
-
+            
             new_group = []
             for span in doc.spans[source]:
-                span.label_ = self.mapping.get(span.label_, span.label_)
+
+                if span.label_ in self.mapping:
+
+                    span = Span(
+                        doc,
+                        span.start,
+                        span.end,
+                        self.mapping.get(span.label_)
+                    )
 
                 if self.inplace:
                     new_group.append(span)
                 else:
                     yield span.start, span.end, span.label_
-                
-
+                    
             if self.inplace:
                 doc.spans[source] = new_group
