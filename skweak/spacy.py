@@ -5,7 +5,7 @@ import spacy
 import itertools
 import json
 from spacy.tokens import Doc, Span  # type: ignore
-from typing import Tuple, Iterable, List
+from typing import Tuple, Iterable, List, Dict
 
 ####################################################################
 # Labelling source based on neural models
@@ -85,8 +85,6 @@ class TruecaseAnnotator(ModelAnnotator):
         (3) and have a relative frequency below min_prob
         ... will be replaced by its most likely case (such as lowercase). """
 
-  #      print("running on", doc[:10])
-
         if not self.form_frequencies:
             raise RuntimeError(
                 "Cannot truecase without a dictionary of form frequencies")
@@ -124,5 +122,64 @@ class TruecaseAnnotator(ModelAnnotator):
 
         # Creates a new document with the tokenised words and space information
         doc2 = Doc(self.model.vocab, words=tokens, spaces=spaces) #type: ignore
- #       print("finished with doc", doc2[:10])
         return doc2
+
+
+class LabelMapper(SpanAnnotator):
+    """When using ModelAnnotators, e.g. spacy_lg models, often the
+    labels introduced is not what one is looking for. This function takes in
+    a dict of labels to replace and desired label to replace with, e.g. 
+    {
+        ('FAC','GPE'):"LOC",
+        ('NORP'):"ORG",
+        ('DATE','EVENT', ..., 'WORK_OF_ART'): "MISC"
+    }
+    """
+
+    def __init__(
+        self,
+        name: str,
+        mapping: Dict[Iterable[str], str],
+        sources: Iterable[str],
+        inplace: bool = True,
+    ):
+        """Creates a new annotator that looks at the labels of certain
+        span groups (specified by 'sources') for each doc. If the label 
+        is found in the mapping dictionary, it is replaced accordingly.
+        If the inplace flag is active, the labels are modified in their
+        respective span groups. If inactive, creates a new span group
+        for all relabelled spans."""
+
+        super().__init__(name)
+        self.sources = sources
+        self.inplace = inplace
+
+        # populate mapping dict
+        self.mapping = {}
+        for k, v in mapping.items():
+            if isinstance(k, str):
+                self.mapping[k] = v
+            else:
+                for key in k:
+                    self.mapping[key] = v
+
+
+    def find_spans(self, doc: Doc) -> Iterable[Tuple[int, int, str]]:
+        """Loops through the spans annotated by the other source and runs the
+        editor function on it. Unique because it doesn't return spans but instead
+        edits the span groups in place!"""
+
+        for source in set(self.sources).intersection(doc.spans):
+
+            new_group = []
+            for span in doc.spans[source]:
+                span.label_ = self.mapping.get(span.label_, span.label_)
+
+                if self.inplace:
+                    new_group.append(span)
+                else:
+                    yield span.start, span.end, span.label_
+                
+
+            if self.inplace:
+                doc.spans[source] = new_group
