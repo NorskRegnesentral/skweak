@@ -9,8 +9,6 @@ import gzip
 # Gazetteer annotator
 ############################################
 
-
-
 class GazetteerAnnotator(base.SpanAnnotator):
     """Annotation using a gazetteer, i.e. a large list of entity terms. The annotation can
     look at either case-sensitive and case-insensitive occurrences.  The annotator relies 

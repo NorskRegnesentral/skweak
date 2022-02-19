@@ -3,6 +3,7 @@
 from typing import Callable, Collection, Dict, Iterable, Optional, Sequence, Set, Tuple
 from spacy.tokens import Span, Token, Doc  # type: ignore
 from .base import SpanAnnotator
+import re
 
 ####################################################################
 # Labelling sources based on heuristics / handcrafted rules
@@ -22,6 +23,52 @@ class FunctionAnnotator(SpanAnnotator):
         super(FunctionAnnotator, self).__init__(name)
         self.find_spans = function
         self.add_incompatible_sources(to_exclude)
+
+
+class RegexAnnotator(SpanAnnotator):
+    """Annotation based on a heuristic regular expression that generates 
+    (start,end,label) given a spacy document"""
+
+    def __init__(
+        self,
+        name: str,
+        pattern: str,
+        tag: str,
+        to_exclude: Sequence[str] = (),
+        alignment_mode : str = "expand",
+    ):
+        """Create an annotator based on a regular expression generating labelled
+        spans given a Spacy Doc object. The regex matches are tagged with the
+        value of the 'tag' param. Spans that overlap with existing spans 
+        from sources listed in 'to_exclude' are ignored."""
+
+        super().__init__(name)
+        self.pattern = pattern
+        self.tag = tag
+        self.alignment_mode = alignment_mode
+        self.add_incompatible_sources(to_exclude)
+
+
+    @staticmethod
+    def regex_search(pattern, string):
+
+        prev_end = 0
+        while True:
+            match = re.search(pattern, string)
+            if not match:
+                break
+
+            start, end = match.span()
+            yield start + prev_end, end + prev_end
+            prev_end += end
+            string = string[end:]
+
+
+    def find_spans(self, doc):
+
+        for start, end in self.regex_search(self.pattern, doc.text):
+            span = doc.char_span(start, end, self.tag, alignment_mode=self.alignment_mode)
+            yield span.start, span.end, self.tag
 
 
 class TokenConstraintAnnotator(SpanAnnotator):
