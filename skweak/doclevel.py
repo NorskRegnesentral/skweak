@@ -17,7 +17,7 @@ class DocumentHistoryAnnotator(base.SpanAnnotator):
     """
 
     def __init__(self, basename: str, other_name: str, labels: List[str],
-                 case_sentitive=True):
+                 case_sensitive=True):
         """Creates a new annotator looking at the global document context, based on another 
         annotation layer (typically a layer aggregating existing annotations). Only the 
         labels specified in the argument will be taken into account."""
@@ -25,7 +25,7 @@ class DocumentHistoryAnnotator(base.SpanAnnotator):
         super(DocumentHistoryAnnotator, self).__init__(basename)
         self.other_name = other_name
         self.labels = labels
-        self.case_sensitive = case_sentitive
+        self.case_sensitive = case_sensitive
 
     def find_spans(self, doc: Doc) -> Iterable[Tuple[int, int, str]]:
         """Search for spans on one single document"""
@@ -136,7 +136,6 @@ class DocumentMajorityAnnotator(base.SpanAnnotator):
         label_counts = defaultdict(dict)
         form_counts = defaultdict(dict)
         spans = utils.get_spans_with_probs(doc, self.other_name)
-
         all_tokens_low = [tok.lower_ for tok in doc]
         checked = {}
         for span, prob in spans:
@@ -152,9 +151,8 @@ class DocumentMajorityAnnotator(base.SpanAnnotator):
 
             # If the string occurs more than once, update the counts
             if occurs_several_times:
-
-                label_counts[tokens_low][span.label_] = label_counts[tokens_low].get(
-                    span.label_, 0) + prob
+                label_counts[tokens_low][span.label_] = \
+                    label_counts[tokens_low].get(span.label_, 0) + prob
                 tokens = tuple(tok.text for tok in span)
                 form_counts[tokens_low][tokens] = form_counts[tokens_low].get(
                     tokens, 0) + prob

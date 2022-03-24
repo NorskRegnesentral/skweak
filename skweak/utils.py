@@ -646,8 +646,8 @@ def token_array_to_spans(agg_array: np.ndarray,
     return spans
 
 
-def token_array_to_probs(agg_array: np.ndarray,
-                         prefix_labels: List[str]) -> Dict[int, Dict[str, float]]:
+def token_array_to_probs(agg_array: np.ndarray, prefix_labels: List[str],
+                         min_threshold=0.1) -> Dict[int, Dict[str, float]]:
     """Given a 2D array containing, for each token, the probabilities for a
     each possible output label in prefix form (B-PERSON, I-ORG, etc.), returns
     a dictionary of dictionaries mapping token indices to probability distributions
@@ -661,10 +661,13 @@ def token_array_to_probs(agg_array: np.ndarray,
     # We only look at labels beyond "O", and with non-zero probability
     row_indices, col_indices = np.nonzero(agg_array[:, 1:])
     for i, j in zip(row_indices, col_indices):
-        if i not in token_probs:
-            token_probs[i] = {prefix_labels[j+1]: agg_array[i, j+1]} #type: ignore
+        prob = agg_array[i, j+1]
+        if prob < min_threshold:
+            continue
+        elif i not in token_probs:
+            token_probs[i] = {prefix_labels[j+1]: prob} #type: ignore
         else:
-            token_probs[i][prefix_labels[j+1]] = agg_array[i, j+1] #type: ignore
+            token_probs[i][prefix_labels[j+1]] = prob #type: ignore
 
     return token_probs
 

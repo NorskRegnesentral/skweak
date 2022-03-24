@@ -20,7 +20,7 @@ def test_history(nlp):
     annotator1 = skweak.spacy.ModelAnnotator("spacy", "en_core_web_sm")
     annotator2 = skweak.doclevel.DocumentHistoryAnnotator("hist_cased", "spacy", ["PERSON", "ORG"])
     annotator3 = skweak.doclevel.DocumentHistoryAnnotator("hist_uncased", "spacy", ["PERSON", "ORG"],
-                                                          case_sentitive=False)
+                                                          case_sensitive=False)
     doc = annotator3(annotator2(annotator1(doc)))
     assert Span(doc, 5, 7, "PERSON") in doc.spans["spacy"]
     assert Span(doc, 11, 13, "ORG") in doc.spans["spacy"]

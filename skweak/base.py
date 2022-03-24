@@ -1,7 +1,11 @@
 
 from abc import abstractmethod
 import itertools
-from typing import Sequence, Tuple, Optional, Iterable
+import pickle
+from typing import Dict, List, Sequence, Set, Tuple, Optional, Iterable
+import numpy as np
+
+import pandas
 from . import utils
 from spacy.tokens import Doc, Span  # type: ignore
 
@@ -116,7 +120,33 @@ class SpanAnnotator(AbstractAnnotator):
                 if start < interval_end and end > interval_start:
                     return False
         return True
+    
+    
+def TextAnnotator(BaseAnnotator):
+    """Abstract class for labelling functions used for text classification 
+    (the goal being to predict the label of a full document)"""
 
+
+    def __call__(self, doc: Doc) -> Doc:
+
+        # We start by clearing all existing annotations
+        doc.spans[self.name] = []
+
+        result = self._get_label(doc)
+        
+        # We only add the annotation is the function returns a label
+        if result is not None:
+            span = Span(doc, 0, len(doc), result)
+            doc.spans[self.name].append(span)
+
+        return doc
+       
+    @abstractmethod
+    def get_label(self, doc: Doc) -> Optional[str]:
+        """Returns the label of the document as predicted by the function,
+        or None if the labelling function "abstains" from giving a prediction"""
+        raise NotImplementedError
+    
 
 ####################################################################
 # Combination of annotators
