@@ -10,8 +10,6 @@ from . import utils
 import pandas
 warnings.simplefilter(action='ignore', category=FutureWarning)
 
-
-
 ####################################################################
 # Abstract class for aggregators
 ####################################################################
@@ -497,4 +495,27 @@ class MultilabelAggregatorMixin(AbstractAggregator):
         # And then fit each model individually
         for sub_model in self.models.values(): #type: ignore
             sub_model._fit(all_obs)
+
+
+from . import generative, voting
+
+def MajorityVoter(name: str, labels: List[str], sequence_labelling: bool = True,
+                 initial_weights=None, prefixes: str = "BIO"):
+    """Added for backward compability purposes. See module voting for updated classes"""
+    if sequence_labelling:
+        return voting.SequentialMajorityVoter(name, labels, prefixes=prefixes,
+                                              initial_weights=initial_weights)
+    else:
+        return voting.MajorityVoter(name, labels, initial_weights=initial_weights)
     
+def HMM(name: str, out_labels: List[str], sequence_labelling: bool = True,
+        prefixes: str = "BIO",  initial_weights=None, redundancy_factor=0.1):
+    """Added for backward compability purposes. See module generative for updated classes"""
+    
+    if sequence_labelling:
+        return generative.HMM(name, out_labels, prefixes=prefixes, 
+                              initial_weights=initial_weights, 
+                              redundancy_factor=redundancy_factor)
+    else:
+        return generative.NaiveBayes(name, out_labels, initial_weights=initial_weights, 
+                                     redundancy_factor=redundancy_factor)

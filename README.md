@@ -80,7 +80,7 @@ Here is a minimal example with three labelling functions (LFs) applied on a sing
 
 ```python
 import spacy, re
-from skweak import heuristics, gazetteers, aggregation, utils
+from skweak import heuristics, gazetteers, generative, utils
 
 # LF 1: heuristic to detect occurrences of MONEY entities
 def money_detector(doc):
@@ -106,7 +106,7 @@ doc = nlp("Donald Trump paid $750 in federal income taxes in 2016")
 doc = lf3(lf2(lf1(doc)))
 
 # and aggregate them
-hmm = aggregation.HMM("hmm", ["PERSON", "DATE", "MONEY"])
+hmm = generative.HMM("hmm", ["PERSON", "DATE", "MONEY"])
 hmm.fit_and_aggregate([doc])
 
 # we can then visualise the final result (in Jupyter)
