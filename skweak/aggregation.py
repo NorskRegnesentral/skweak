@@ -197,6 +197,12 @@ class AbstractAggregator(AbstractAnnotator):
             if label not in self.observed_labels:
                 self.observed_labels.append(label)
                 
+    def add_underspecified_label(self, coarse_label: str, sub_labels: Set[str]):
+        """Kept for backward compability purposes. The method add_label_group
+        should be preferred."""
+        
+        self.add_label_group(coarse_label, sub_labels)
+                
                 
     def _get_vote_matrix(self, include_underspec=True) -> Tuple[np.ndarray, np.ndarray]:
         """Creates a boolean matrice of shape (nb_observed_labels, nb_out_labels)
