@@ -6,7 +6,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
      name='skweak',  
-     version='0.3.1', 
+     version='0.3.2', 
      author="Pierre Lison",
      author_email="plison@nr.no",
      description="Software toolkit for weak supervision in NLP",
