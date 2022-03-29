@@ -1,9 +1,11 @@
+import gzip
 import json
 import re
-from typing import Iterable, List, Dict, Tuple, Optional
-from . import base, utils
+from typing import Dict, Iterable, List, Optional, Tuple
+
 from spacy.tokens import Doc, Span, Token  # type: ignore
-import gzip
+
+from . import base, utils
 
 ############################################
 # Gazetteer annotator

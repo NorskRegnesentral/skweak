@@ -1,14 +1,10 @@
-
-from abc import abstractmethod
 import itertools
-import pickle
-from typing import Dict, List, Sequence, Set, Tuple, Optional, Iterable
-import numpy as np
+from abc import abstractmethod
+from typing import Iterable, Optional, Sequence, Tuple
 
-import pandas
-from . import utils
 from spacy.tokens import Doc, Span  # type: ignore
 
+from . import utils
 
 ############################################
 # Abstract class for all annotators

@@ -1,11 +1,11 @@
-
-
-from skweak.base import SpanAnnotator
-import spacy
 import itertools
 import json
+from typing import Dict, Iterable, List, Tuple
+
+import spacy
 from spacy.tokens import Doc, Span  # type: ignore
-from typing import Tuple, Iterable, List, Dict
+
+from .base import SpanAnnotator
 
 ####################################################################
 # Labelling source based on neural models
