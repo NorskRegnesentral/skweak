@@ -60,6 +60,11 @@ pip install --user git+https://github.com/NorskRegnesentral/skweak
 
 The above installation only includes the core library (not the additional examples in `examples`).
 
+Note: some examples and tests may require prepared spaCy pipelines. These can be downloaded automatically using the syntax (for the pipeline `en_core_web_sm`)
+```shell
+python -m spacy download en_core_web_sm
+```
+
 
 ## Basic Overview
 
