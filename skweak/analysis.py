@@ -1,15 +1,12 @@
 from collections import defaultdict
-from operator import imod
-from typing import DefaultDict, Dict, List, Optional, Tuple, Set
+from typing import DefaultDict, Dict, List, Optional, Set, Tuple
 
 import numpy as np
-from numpy.lib.type_check import nan_to_num
 import pandas
 from scipy import sparse
-import scipy
-from spacy.tokens import Doc
 
-from skweak import utils
+from . import utils
+from spacy.tokens import Doc
 
 
 class LFAnalysis:

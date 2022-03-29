@@ -1,11 +1,9 @@
-
-from skweak.gazetteers import GazetteerAnnotator
-from skweak import utils
-from typing import Dict, List, Tuple, Iterable
-from . import gazetteers, base
-from spacy.tokens import Doc, Span  # type: ignore
 from collections import defaultdict
+from typing import Dict, Iterable, List, Tuple
 
+from . import base, utils
+from .gazetteers import GazetteerAnnotator, Trie
+from spacy.tokens import Doc, Span  # type: ignore
 
 class DocumentHistoryAnnotator(base.SpanAnnotator):
     """Annotation based on the document history: 
@@ -34,7 +32,7 @@ class DocumentHistoryAnnotator(base.SpanAnnotator):
         first_observed = self.get_first_mentions(doc)
         
         # We construct tries based on the first mentions
-        tries = {label: gazetteers.Trie() for label in self.labels}
+        tries = {label: Trie() for label in self.labels}
         first_observed_bounds = set()
         for tokens, span in first_observed.items():
             tries[span.label_].add(tokens)
@@ -117,7 +115,7 @@ class DocumentMajorityAnnotator(base.SpanAnnotator):
         majority_labels = self.get_majority_labels(doc)
 
         # we build trie to easily search for these entities in the text
-        tries = {label: gazetteers.Trie()
+        tries = {label: Trie()
                  for label in set(majority_labels.values())}
         for ent_tokens, label in majority_labels.items():
             tries[label].add(list(ent_tokens))

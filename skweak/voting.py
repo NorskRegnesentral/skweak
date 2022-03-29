@@ -1,14 +1,12 @@
+import warnings
+from typing import Dict, List, Optional
 
-import pickle, copy, warnings
 import numpy as np
-from spacy.tokens import Doc, Span
-from abc import abstractmethod
-from typing import Iterable, List, Optional, Set, Dict, Tuple, Type
-
-from .aggregation import AbstractAggregator,TextAggregatorMixin,SequenceAggregatorMixin,MultilabelAggregatorMixin
-from spacy.tokens import Doc, Span  # type: ignore
-from . import utils
 import pandas
+
+from .aggregation import (AbstractAggregator, MultilabelAggregatorMixin,
+                          SequenceAggregatorMixin, TextAggregatorMixin)
+
 warnings.simplefilter(action='ignore', category=FutureWarning)
 
     

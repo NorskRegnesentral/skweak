@@ -1,10 +1,11 @@
-
+import functools
 import json
 import re
-import functools
-from typing import List, Dict, Set, Tuple, Optional, TypeVar, Iterable
-from spacy.tokens import Doc, Token, Span, DocBin  # type: ignore
+from typing import Dict, Iterable, List, Optional, Set, Tuple, TypeVar
+
 import numpy as np
+
+from spacy.tokens import Doc, DocBin, Span, Token  # type: ignore
 
 T = TypeVar('T')
 
@@ -182,6 +183,7 @@ def docbin_writer(docs: Iterable[Doc], docbin_output_path: str):
     """Writes a stream of Spacy Doc objects to a binary file in the DocBin format."""
 
     import spacy.attrs
+
     # Creating the DocBin object (with all attributes)
     attrs = [spacy.attrs.LEMMA, spacy.attrs.TAG, spacy.attrs.DEP, spacy.attrs.HEAD,
              spacy.attrs.ENT_IOB, spacy.attrs.ENT_TYPE]
@@ -728,8 +730,9 @@ def display_entities(doc: Doc, layer=None, add_tooltip=False):
     the predictions of each labelling functions for a given token. This functionality
     only works with Jupyter Lab (not Jupyter Notebook).
     """
-    import spacy.displacy
     import IPython.core.display
+
+    import spacy.displacy
     if layer is None:
         spans = doc.ents
     elif type(layer) is list:

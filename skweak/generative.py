@@ -1,19 +1,18 @@
-
-
-import numpy as np
+import warnings
 from abc import abstractmethod
-from typing import Iterable, List, Optional, Set, Dict, Tuple, Union
-from .aggregation import AbstractAggregator, SequenceAggregatorMixin
-from .aggregation import TextAggregatorMixin, MultilabelAggregatorMixin
-from .voting import MajorityVoterMixin
-from spacy.tokens import Doc, Span  # type: ignore
-from . import utils, base
+from typing import Dict, Iterable, List, Optional
+
 import hmmlearn
 import hmmlearn.base
+import numpy as np
 import pandas
 import scipy.special
 
-import warnings
+from . import utils
+from .aggregation import (AbstractAggregator, MultilabelAggregatorMixin,
+                          SequenceAggregatorMixin, TextAggregatorMixin)
+from .voting import MajorityVoterMixin
+
 warnings.simplefilter(action='ignore', category=FutureWarning)
 
 ##########################################

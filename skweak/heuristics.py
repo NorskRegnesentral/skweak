@@ -1,9 +1,10 @@
-
-
-from typing import Callable, Collection, Dict, Iterable, Optional, Sequence, Set, Tuple
-from spacy.tokens import Span, Token, Doc  # type: ignore
-from .base import SpanAnnotator
 import re
+from typing import (Callable, Collection, Dict, Iterable, Optional, Sequence,
+                    Set, Tuple)
+
+from spacy.tokens import Doc, Span, Token  # type: ignore
+
+from .base import SpanAnnotator
 
 ####################################################################
 # Labelling sources based on heuristics / handcrafted rules

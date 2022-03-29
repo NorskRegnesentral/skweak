@@ -1,13 +1,16 @@
-import pickle, copy, warnings
-import numpy as np
-from spacy.tokens import Doc, Span
+import pickle
+import warnings
 from abc import abstractmethod
-from typing import Iterable, List, Optional, Set, Dict, Tuple, Type
+from typing import Dict, Iterable, List, Set, Tuple, Type
 
-from .base import AbstractAnnotator
-from spacy.tokens import Doc, Span  # type: ignore
-from . import utils
+import numpy as np
 import pandas
+
+from spacy.tokens import Doc, Span  # type: ignore
+
+from . import utils
+from .base import AbstractAnnotator
+
 warnings.simplefilter(action='ignore', category=FutureWarning)
 
 ####################################################################
@@ -504,6 +507,7 @@ class MultilabelAggregatorMixin(AbstractAggregator):
 
 
 from . import generative, voting
+
 
 def MajorityVoter(name: str, labels: List[str], sequence_labelling: bool = True,
                  initial_weights=None, prefixes: str = "BIO"):
