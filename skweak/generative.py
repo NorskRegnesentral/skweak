@@ -157,7 +157,7 @@ class GenerativeModelMixin(AbstractAggregator):
 
         # We also add a constraint that the probability of a state is 
         # zero if no labelling functions "votes" for it
-        votes = np.sum(X[source].dot(self._get_vote_matrix(include_underspec=False)) 
+        votes = sum(X[source].dot(self._get_vote_matrix(include_underspec=False)) 
                        for source in self.emit_counts if source in X)
         logsum= np.where(votes > 0, logsum, -np.inf)
 
