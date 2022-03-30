@@ -110,9 +110,12 @@ doc = nlp("Donald Trump paid $750 in federal income taxes in 2016")
 # apply the labelling functions
 doc = lf3(lf2(lf1(doc)))
 
-# and aggregate them
+# create and fit the HMM aggregation model
 hmm = generative.HMM("hmm", ["PERSON", "DATE", "MONEY"])
-hmm.fit_and_aggregate([doc])
+hmm.fit([doc]*10)
+
+# once fitted, we simply apply the model to aggregate all functions
+doc = hmm(doc)
 
 # we can then visualise the final result (in Jupyter)
 utils.display_entities(doc, "hmm")
