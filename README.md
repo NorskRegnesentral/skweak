@@ -21,7 +21,7 @@ The labelling functions may take various forms, such as domain-specific heuristi
 <br>
 
 **Full Paper**:<br>
-Pierre Lison, Jeremy Barnes and Aliaksandr Hubin (2021), "[skweak: Weak Supervision Made Easy for NLP](http://arxiv.org/abs/2104.09683)", *arXiv:2104.09683*.
+Pierre Lison, Jeremy Barnes and Aliaksandr Hubin (2021), "[skweak: Weak Supervision Made Easy for NLP](https://aclanthology.org/2021.acl-demo.40/)", *ACL 2021 (System demonstrations)*.
 
 **Documentation & API**: See the [Wiki](https://github.com/NorskRegnesentral/skweak/wiki) for details on how to use `skweak`. 
 
@@ -139,15 +139,21 @@ the copyright and license notices (see file [License](https://github.com/NorskRe
 
 See our paper describing the framework: 
 
-Pierre Lison, Jeremy Barnes and Aliaksandr Hubin (2021), "[skweak: Weak Supervision Made Easy for NLP](http://arxiv.org/abs/2104.09683)", *arXiv:2104.09683*
+Pierre Lison, Jeremy Barnes and Aliaksandr Hubin (2021), "[skweak: Weak Supervision Made Easy for NLP](https://aclanthology.org/2021.acl-demo.40/)", *ACL 2021 (System demonstrations)*. 
 
 ```bibtex
-@misc{lison2021skweak,
-      title={skweak: Weak Supervision Made Easy for NLP}, 
-      author={Pierre Lison and Jeremy Barnes and Aliaksandr Hubin},
-      year={2021},
-      eprint={2104.09683},
-      archivePrefix={arXiv},
-      primaryClass={cs.CL}
+@inproceedings{lison-etal-2021-skweak,
+    title = "skweak: Weak Supervision Made Easy for {NLP}",
+    author = "Lison, Pierre  and
+      Barnes, Jeremy  and
+      Hubin, Aliaksandr",
+    booktitle = "Proceedings of the 59th Annual Meeting of the Association for Computational Linguistics and the 11th International Joint Conference on Natural Language Processing: System Demonstrations",
+    month = aug,
+    year = "2021",
+    address = "Online",
+    publisher = "Association for Computational Linguistics",
+    url = "https://aclanthology.org/2021.acl-demo.40",
+    doi = "10.18653/v1/2021.acl-demo.40",
+    pages = "337--346",
 }
 ```
