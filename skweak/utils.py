@@ -349,7 +349,7 @@ def _remove_overlaps(spans: List[Span]) -> List[Span]:
     """
 
     # We sort the spans by their position
-    spans.sort()
+    spans.sort(key=lambda x:(x.start,x.end,x.label_))
 
     # We resolve overlaps between spans
     finished = False

@@ -84,7 +84,7 @@ def test_vicinity(nlp):
     
     
 def test_model(nlp):
-    doc = nlp("My name is Pierre Lison, I live in Oslo and I work at the Norwegian Computing Center.")
+    doc = nlp("My name is Pierre Lison, I come from Belgium and I work at the Norwegian Computing Center.")
     
     annotator = skweak.spacy.ModelAnnotator("core_web_md", "en_core_web_md")
     doc = annotator(doc)

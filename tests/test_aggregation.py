@@ -171,7 +171,9 @@ def test_hmm2(doc):
 def test_combi(doc2, combi_annotator):
     
     combi_annotator(doc2)
-    assert len(doc2.spans["spacy"]) > 35
+    import pickle
+    pickle.dump(doc2, open("doc2.pkl", "wb"))
+    assert len(doc2.spans["spacy"]) >= 35
     assert len(doc2.spans["spacy"]) < 45
     assert len(doc2.spans["geo_cased"]) in {0,1}
     assert len(doc2.spans["geo_uncased"]) in {1,2}
