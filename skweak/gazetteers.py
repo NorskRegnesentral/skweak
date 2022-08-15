@@ -208,7 +208,7 @@ class Trie:
             match = self._find_match(token, edges, case_sensitive)
             if not match:
                 return False
-            edges, is_terminal = edges[token]
+            edges, is_terminal = edges[match]
         return is_terminal
 
     def add(self, tokens: List[str]):
