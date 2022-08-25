@@ -721,7 +721,7 @@ def is_valid_transition(prefix_label1, prefix_label2, encoding="BIO"):
 # Visualisation
 ############################################
 
-def display_entities(doc: Doc, layer=None, add_tooltip=False):
+def display_entities(doc: Doc, layer=None, add_tooltip=False, options={}):
     """Display the entities annotated in a spacy document, based on the
     provided annotation layer(s). If layer is None, the method displays
     the entities from Spacy. 
@@ -764,7 +764,7 @@ def display_entities(doc: Doc, layer=None, add_tooltip=False):
     entities = [{"start": start, "end": end, "label": label}
                 for (start, end), label in entities.items()]
     doc2 = {"text": doc.text, "title": None, "ents": entities}
-    html = spacy.displacy.render(doc2, jupyter=False, style="ent", manual=True)
+    html = spacy.displacy.render(doc2, jupyter=False, style="ent", manual=True, options=options)
 
     if add_tooltip and type(layer)==str and "sources" in doc.spans[layer].attrs:
         html = _enrich_with_tooltip(doc, html, doc.spans[layer].attrs["sources"])  # type: ignore
@@ -847,3 +847,43 @@ def _enrich_with_tooltip(doc: Doc, html: str, sources: List[str]):
 """ + "".join(new_fragments)
 
     return new_html
+
+def export_entities(doc: Doc, layer=None, options={}, minify=False):
+    """Export entities annotated in a spacy document. Reuses the display_entities
+    codebase with same structure for Layer param.
+    Extended the options based on displacy API
+    """
+    import spacy.displacy
+    if layer is None:
+        spans = doc.ents
+    elif type(layer) is list:
+        spans = get_spans(doc, layer)
+    elif type(layer) == str:
+        if "*" in layer:
+            matched_layers = [l for l in doc.spans
+                              if re.match(layer.replace("*", ".*?") + "$", l)]
+            spans = get_spans(doc, matched_layers)
+        else:
+            spans = get_spans(doc, [layer])
+    else:
+        raise RuntimeError("Layer type not accepted")
+    
+    entities = {}
+    for span in spans:
+        
+        start_char = doc[span.start].idx
+        end_char = doc[span.end - 1].idx + len(doc[span.end - 1])
+        
+        if (start_char, end_char) not in entities:
+            entities[(start_char, end_char)] = span.label_
+        
+        # If we have several alternative labels for a span, join them with +
+        elif span.label_ not in entities[(start_char, end_char)]:
+            entities[(start_char, end_char)] = entities[(
+                start_char, end_char)] + "+" + span.label_
+    
+    entities = [{"start": start, "end": end, "label": label}
+                for (start, end), label in entities.items()]
+    doc2 = {"text": doc.text, "title": None, "ents": entities}
+    return spacy.displacy.render(doc2, jupyter=False, style="ent", manual=True, options=options, minify=minify)
+    
