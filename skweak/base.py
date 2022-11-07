@@ -118,17 +118,17 @@ class SpanAnnotator(AbstractAnnotator):
         return True
     
     
-def TextAnnotator(BaseAnnotator):
-    """Abstract class for labelling functions used for text classification 
+class TextAnnotator(AbstractAnnotator):
+    """Abstract class for labelling functions used for text classification
     (the goal being to predict the label of a full document)"""
-
 
     def __call__(self, doc: Doc) -> Doc:
 
         # We start by clearing all existing annotations
+        
         doc.spans[self.name] = []
 
-        result = self._get_label(doc)
+        result = self.get_label(doc)
         
         # We only add the annotation is the function returns a label
         if result is not None:
@@ -136,12 +136,12 @@ def TextAnnotator(BaseAnnotator):
             doc.spans[self.name].append(span)
 
         return doc
-       
+
     @abstractmethod
     def get_label(self, doc: Doc) -> Optional[str]:
         """Returns the label of the document as predicted by the function,
         or None if the labelling function "abstains" from giving a prediction"""
-        raise NotImplementedError
+        raise NotImplementedError("Must implement get_label method")
     
 
 ####################################################################
