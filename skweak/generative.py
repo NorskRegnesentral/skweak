@@ -4,6 +4,7 @@ from typing import Dict, Iterable, List, Optional
 
 import hmmlearn
 import hmmlearn.base
+import hmmlearn._hmmc
 import numpy as np
 import pandas
 import scipy.special
@@ -531,8 +532,8 @@ class HMM(GenerativeModelMixin,SequenceAggregatorMixin):
         framelogprob = self._get_log_likelihood(X)
                 
         # We run a forward and backward pass to compute the posteriors
-        _, fwdlattice = self.hmm._do_forward_log_pass(framelogprob)
-        bwdlattice = self.hmm._do_backward_log_pass(framelogprob)
+        _, fwdlattice = hmmlearn._hmmc.forward_log(self.hmm.startprob_, self.hmm.transmat_, framelogprob)
+        bwdlattice = hmmlearn._hmmc.backward_log(self.hmm.startprob_, self.hmm.transmat_, framelogprob)
         posteriors = self.hmm._compute_posteriors_log(fwdlattice, bwdlattice)  
         
         return posteriors #type: ignore
@@ -627,10 +628,10 @@ class HMM(GenerativeModelMixin,SequenceAggregatorMixin):
         
         # Compute its current log-likelihood
         framelogprob = self._get_log_likelihood(X)
-                
+                 
         # We run a forward and backward pass to compute the posteriors
-        logprob, fwdlattice = self.hmm._do_forward_log_pass(framelogprob)
-        bwdlattice = self.hmm._do_backward_log_pass(framelogprob)
+        logprob, fwdlattice = hmmlearn._hmmc.forward_log(self.hmm.startprob_, self.hmm.transmat_, framelogprob)
+        bwdlattice = hmmlearn._hmmc.backward_log(self.hmm.startprob_, self.hmm.transmat_, framelogprob)
         posteriors = self.hmm._compute_posteriors_log(fwdlattice, bwdlattice)  
         
         # Update the start counts
@@ -639,8 +640,8 @@ class HMM(GenerativeModelMixin,SequenceAggregatorMixin):
         # Updating the transition counts
         n_samples, n_components = framelogprob.shape
         if n_samples > 1:
-            log_xi_sum = hmmlearn._hmmc.compute_log_xi_sum(fwdlattice, hmmlearn.base.log_mask_zero(self.hmm.transmat_),
-                                                        bwdlattice, framelogprob)
+            log_xi_sum = hmmlearn._hmmc.compute_log_xi_sum(fwdlattice, self.hmm.transmat_,
+                                                           bwdlattice, framelogprob)
             self.trans_counts += np.exp(log_xi_sum) #type: ignore
 
         # Updating the emission counts
