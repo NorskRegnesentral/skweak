@@ -37,7 +37,7 @@ https://user-images.githubusercontent.com/11574012/114999146-e0995300-9ea1-11eb-
 ## Dependencies
 
 - `spacy` >= 3.0.0
-- `hmmlearn` >= 0.2.4
+- `hmmlearn` >= 0.3.0
 - `pandas` >= 0.23
 - `numpy` >= 1.18
 
