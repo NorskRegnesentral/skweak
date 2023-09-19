@@ -12,7 +12,7 @@ setuptools.setup(
      description="Software toolkit for weak supervision in NLP",
      license='LICENSE.txt',
      packages=['skweak'],
-     python_requires=">=3.6",
+     python_requires=">=3.7.4",
      install_requires=["spacy>=3.0","hmmlearn>=0.3.0", "pandas>=0.23", "numpy>=1.18"],
      long_description=long_description,
      long_description_content_type="text/markdown",
