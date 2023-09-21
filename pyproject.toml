@@ -30,11 +30,16 @@ classifiers = [
 packages = [{ include = "skweak" }]
 
 [tool.poetry.dependencies]
-python = "^3.7.4"
+python = ">=3.7.4,<3.13"
 spacy = "^3.0"
 hmmlearn = "~0.3.0"
 scipy = "^1.5.4"
 pandas = ">=0.23,<2.0"
+# Workaround for using up-to-date binary wheels for all Python versions
+numpy = [
+    { version = "^1.21.1", python = ">=3.7,<3.9" },
+    { version = "^1.26", python = ">=3.9" }
+]
 
 [tool.poetry.group.dev]
 optional = true
@@ -42,8 +47,8 @@ optional = true
 [tool.poetry.group.dev.dependencies]
 pytest = "^7.4.2"
 spacy = "~3.6.1"
-en_core_web_sm = {url = "https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.6.0/en_core_web_sm-3.6.0-py3-none-any.whl"}
-en_core_web_md = {url = "https://github.com/explosion/spacy-models/releases/download/en_core_web_md-3.6.0/en_core_web_md-3.6.0-py3-none-any.whl"}
+en_core_web_sm = { url = "https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.6.0/en_core_web_sm-3.6.0-py3-none-any.whl" }
+en_core_web_md = { url = "https://github.com/explosion/spacy-models/releases/download/en_core_web_md-3.6.0/en_core_web_md-3.6.0-py3-none-any.whl" }
 
 # TODO: Shall we use black?
 
