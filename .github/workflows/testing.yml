@@ -1,6 +1,6 @@
 name: testing
 
-on: [push]
+on: [ push ]
 
 jobs:
   build:
@@ -8,34 +8,37 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ["3.7", "3.8", "3.9", "3.10", "3.11"]
+        python-version: [ "3.7", "3.8", "3.9", "3.10", "3.11" ]
 
     steps:
-    - uses: actions/checkout@v3
-      name: Checkout
+      - uses: actions/checkout@v3
+        name: Checkout
 
-    - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v4
-      with:
-        python-version: ${{ matrix.python-version }}
-        cache: 'pip'
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: 'pip'
 
-    - uses: Gr1N/setup-poetry@v8
-      with:
-        poetry-version: 1.5.1
+      - name: Install libpython-dev
+        run: sudo apt-get install libpython${{ matrix.python-version }}-dev
 
-    - name: Install Python dependencies
-      run: |
-        poetry install --with dev
+      - uses: Gr1N/setup-poetry@v8
+        with:
+          poetry-version: 1.5.1
 
-    # TODO: add mkdocs documentation, make sure examples work
+      - name: Install Python dependencies
+        run: |
+          poetry install --with dev
 
-#    - name: Lint with flake8 #TODO: use ruff
-#      run: |
-#        # stop the build if there are Python syntax errors or undefined names
-#        flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
-#        # exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
-#        flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+      # TODO: add mkdocs documentation, make sure examples work
 
-    - name: Test with pytest
-      run: poetry run pytest
+      #    - name: Lint with flake8 #TODO: use ruff
+      #      run: |
+      #        # stop the build if there are Python syntax errors or undefined names
+      #        flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+      #        # exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
+      #        flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+
+      - name: Test with pytest
+        run: poetry run pytest
