@@ -1,0 +1,57 @@
+[tool.poetry]
+name = "skweak"
+version = "0.3.3"
+description = "Software toolkit for weak supervision in NLP"
+authors = ["Perre Lison <plison@nr.no>"]
+maintainers = ["Perre Lison <plison@nr.no>", "György Orosz <gyorgy@orosz.link>"]
+keywords = ["weak supervision", "sklearn", "scikit-learn", "nlp", "text processing", "language processing",
+    "text mining", "text classification", "token classification", "ner", "named entity recognition", "hmm", "spacy"]
+repository = "https://github.com/NorskRegnesentral/skweak"
+license = "MIT"
+readme = "README.md"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.7",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "Topic :: Text Processing",
+    "Topic :: Text Processing :: Linguistic",
+    "Topic :: Scientific/Engineering",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Scientific/Engineering :: Human Machine Interfaces",
+    "Topic :: Scientific/Engineering :: Information Analysis",
+]
+packages = [{ include = "skweak" }]
+
+[tool.poetry.dependencies]
+python = "^3.7.4"
+spacy = "^3.0"
+hmmlearn = "~0.3.0"
+scipy = "^1.5.4"
+pandas = ">=0.23,<2.0"
+
+[tool.poetry.group.dev]
+optional = true
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^7.4.2"
+spacy = "~3.6.1"
+en_core_web_sm = {url = "https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.6.0/en_core_web_sm-3.6.0-py3-none-any.whl"}
+en_core_web_md = {url = "https://github.com/explosion/spacy-models/releases/download/en_core_web_md-3.6.0/en_core_web_md-3.6.0-py3-none-any.whl"}
+
+# TODO: Shall we use black?
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-s -v --durations=0"
+cache_dir = ".cache/pytest"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

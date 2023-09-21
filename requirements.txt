@@ -1,5 +1,0 @@
-spacy>=3.0
-hmmlearn>=0.3.0
-pandas>=0.23
-scipy>=1.5.4
-click<8.1.0
