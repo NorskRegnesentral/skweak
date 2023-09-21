@@ -30,15 +30,15 @@ classifiers = [
 packages = [{ include = "skweak" }]
 
 [tool.poetry.dependencies]
-python = ">=3.7.4,<3.13"
+python = ">=3.7.4,<3.12"
 spacy = "^3.0"
 hmmlearn = "~0.3.0"
 scipy = "^1.5.4"
 pandas = ">=0.23,<2.0"
 # Workaround for using up-to-date binary wheels for all Python versions
 numpy = [
-    { version = "^1.21.1", python = ">=3.7,<3.9" },
-    { version = "^1.26", python = ">=3.9" }
+    { version = "~1.21.1", python = ">=3.7,<3.9" },
+    { version = "^1.24", python = ">=3.9,<3.12" }
 ]
 
 [tool.poetry.group.dev]
