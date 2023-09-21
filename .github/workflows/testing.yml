@@ -27,6 +27,7 @@ jobs:
 
       - name: Install Python dependencies
         run: |
+          poetry run pip install -U pip
           poetry install --with dev
 
       # TODO: add mkdocs documentation, make sure examples work
