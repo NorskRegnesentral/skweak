@@ -1,0 +1,5 @@
+.idea/
+.venv/
+build/
+sdist/
+dist/
