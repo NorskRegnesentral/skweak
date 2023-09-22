@@ -3,7 +3,7 @@ name = "skweak"
 version = "0.3.3"
 description = "Software toolkit for weak supervision in NLP"
 authors = ["Perre Lison <plison@nr.no>"]
-maintainers = ["Perre Lison <plison@nr.no>", "György Orosz <gyorgy@orosz.link>"]
+maintainers = ["Perre Lison <plison@nr.no>"]
 keywords = ["weak supervision", "sklearn", "scikit-learn", "nlp", "text processing", "language processing",
     "text mining", "text classification", "token classification", "ner", "named entity recognition", "hmm", "spacy"]
 repository = "https://github.com/NorskRegnesentral/skweak"
