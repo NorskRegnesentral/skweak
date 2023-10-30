@@ -5,7 +5,6 @@ from typing import Dict, Iterable, List, Set, Tuple, Type
 
 import numpy as np
 import pandas
-import json
 
 from spacy.tokens import Doc, Span  # type: ignore
 
@@ -72,23 +71,21 @@ class AbstractAggregator(AbstractAnnotator):
             # And extract the full probability distributions
             output_probs = self._get_probs(agg_df)
 
-            # Convert to JSON format for keeping the attribute.
-            results = []
+            # Does not support list of Tuple during serialization, converting to list of Dict
+            output_prob_dicts = []
             for (span_start, span_end), probs in output_probs.items():
-                # print(f"span_start, span_end: {span_start}, {span_end}")
-                results.append({
+                output_prob_dicts.append({
                     "span_start": span_start,
                     "span_end": span_end,
-                    "value": probs
+                    "probs": probs
                 })
-            output_prob_sts = json.dumps(results)
 
         # Storing the results (both as spans and with the full probs)
         doc.spans[self.name] = [Span(doc, start, end, label=label)
                                 for (start, end, label) in output_spans]
-        doc.spans[self.name].attrs["probs"] = output_prob_sts
+        doc.spans[self.name].attrs["probs"] = output_prob_dicts
         doc.spans[self.name].attrs["aggregated"] = True
-        doc.spans[self.name].attrs["sources"] = "|||".join(list(df.columns))
+        doc.spans[self.name].attrs["sources"] = list(df.columns)
 
         return doc
     
@@ -297,7 +294,7 @@ class TextAggregatorMixin(AbstractAggregator):
         
         for source_index, source in enumerate(sources):
             for span in doc.spans[source]:
-                # Change from span.label_ to span.label. Otherwise, it will be "" for all.
+                # Change from span.label_ to span.label. Otherwise, it will be "" for all and nothong will be added to the array.
                 if span.label in observed_labels:
                     span_index = spans_indices[(span.start, span.end)]
                     data[span_index, source_index] = label_indices[span.label]
