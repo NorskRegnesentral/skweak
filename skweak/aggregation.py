@@ -71,10 +71,19 @@ class AbstractAggregator(AbstractAnnotator):
             # And extract the full probability distributions
             output_probs = self._get_probs(agg_df)
 
+            # Does not support list of Tuple during serialization, converting to list of Dict
+            output_prob_dicts = []
+            for (span_start, span_end), probs in output_probs.items():
+                output_prob_dicts.append({
+                    "span_start": span_start,
+                    "span_end": span_end,
+                    "probs": probs
+                })
+
         # Storing the results (both as spans and with the full probs)
         doc.spans[self.name] = [Span(doc, start, end, label=label)
                                 for (start, end, label) in output_spans]
-        doc.spans[self.name].attrs["probs"] = output_probs
+        doc.spans[self.name].attrs["probs"] = output_prob_dicts
         doc.spans[self.name].attrs["aggregated"] = True
         doc.spans[self.name].attrs["sources"] = list(df.columns)
 
@@ -285,9 +294,10 @@ class TextAggregatorMixin(AbstractAggregator):
         
         for source_index, source in enumerate(sources):
             for span in doc.spans[source]:
-                if span.label_ in observed_labels:
+                # Change from span.label_ to span.label. Otherwise, it will be "" for all and nothong will be added to the array.
+                if span.label in observed_labels:
                     span_index = spans_indices[(span.start, span.end)]
-                    data[span_index, source_index] = label_indices[span.label_]
+                    data[span_index, source_index] = label_indices[span.label]
 
         # We only consider spans with at least one concrete prediction
         masking = np.full(len(unique_spans), fill_value=True, dtype=bool)
